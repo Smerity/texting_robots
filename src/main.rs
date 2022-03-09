@@ -129,7 +129,7 @@ struct Robot<'a> {
     txt: &'a [u8],
     lines: Vec<Line<'a>>,
     subset: Vec<Line<'a>>,
-    rules: Vec<(bool, Regex)>,
+    rules: Vec<(bool, usize, Regex)>,
     delay: Option<u32>,
     sitemaps: Vec<&'a BStr>,
 }
@@ -234,12 +234,12 @@ impl<'a> Robot<'a> {
         let mut rules = vec![];
         for line in subset.iter()
                 .filter(|x| matches!(x, Line::Allow(_) | Line::Disallow(_))) {
-            let (is_allowed, pat) = match line {
+            let (is_allowed, original) = match line {
                 Line::Allow(pat) => (true, *pat),
                 Line::Disallow(pat) => (false, *pat),
                 _ => unreachable!(),
             };
-            let pat = match pat.to_str() {
+            let pat = match original.to_str() {
                 Ok(pat) => pat,
                 Err(_) => continue,
             };
@@ -250,7 +250,7 @@ impl<'a> Robot<'a> {
                 // Apply computation / memory limits against adversarial actors
                 .dfa_size_limit(10 * (2 << 10)).size_limit(10 * (1 << 10))
                 .build().unwrap();
-            rules.push((is_allowed, rule));
+            rules.push((is_allowed, original.len(), rule));
         }
 
         Ok(Robot {
@@ -277,12 +277,13 @@ impl<'a> Robot<'a> {
             return true;
         }
 
-        let mut matches: Vec<(isize, bool, &Regex)> = self.rules.iter().filter_map(|(is_allowed, rule)| {
-            rule.find(url).map(|m| (m.end() as isize, *is_allowed, rule))
+        let mut matches: Vec<(isize, bool, &Regex)> = self.rules.iter().filter_map(|(is_allowed, rule_len, rule)| {
+            rule.find(url).map(|_| (*rule_len as isize, *is_allowed, rule))
         }).collect();
 
         // Sort according to the longest match
         matches.sort_by_key(|x| (-x.0, !x.1));
+        //println!("{:?}", matches);
 
         match matches.first() {
             Some((_, is_allowed, _)) => *is_allowed,
