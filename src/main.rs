@@ -10,55 +10,39 @@ use nom::character::complete::{line_ending};
 use nom::combinator::{opt, eof};
 use nom::multi::{many_till};
 
-struct UserAgent<'a> {
-    pub agent: &'a [u8],
-}
+#[cfg(test)]
+mod test;
 
-struct Allow<'a> {
-    pub rule: &'a [u8],
-}
-
-struct Disallow<'a> {
-    pub rule: &'a [u8],
-}
-
-struct CrawlDelay {
-    pub delay: Option<u32>,
-}
-
-struct Sitemap<'a> {
-    pub url: &'a [u8],
-}
-
+#[derive(PartialEq)]
 enum Line<'a> {
-    UserAgent(UserAgent<'a>),
-    Allow(Allow<'a>),
-    Disallow(Disallow<'a>),
-    Sitemap(Sitemap<'a>),
-    CrawlDelay(CrawlDelay),
+    UserAgent(&'a [u8]),
+    Allow(&'a [u8]),
+    Disallow(&'a [u8]),
+    Sitemap(&'a [u8]),
+    CrawlDelay(Option<u32>),
     Raw(&'a [u8]),
 }
 
 impl fmt::Debug for Line<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Line::UserAgent(ua) => f.debug_struct("UserAgent")
-                .field("agent", &ua.agent)
+            Line::UserAgent(ua) => f.debug_tuple("UserAgent")
+                .field(&ua.as_bstr())
                 .finish(),
-            Line::Allow(a) => f.debug_struct("Allow")
-                .field("rule", &a.rule.as_bstr())
+            Line::Allow(a) => f.debug_tuple("Allow")
+                .field(&a.as_bstr())
                 .finish(),
-                Line::Disallow(a) => f.debug_struct("Disallow")
-                .field("rule", &a.rule.as_bstr())
+                Line::Disallow(a) => f.debug_tuple("Disallow")
+                .field(&a.as_bstr())
                 .finish(),
-            Line::CrawlDelay(c) => f.debug_struct("CrawlDelay")
-                .field("delay", &c.delay)
+            Line::CrawlDelay(c) => f.debug_tuple("CrawlDelay")
+                .field(&c)
                 .finish(),
-            Line::Sitemap(sm) => f.debug_struct("Sitemap")
-                .field("url", &sm.url.as_bstr())
+            Line::Sitemap(sm) => f.debug_tuple("Sitemap")
+                .field(&sm.as_bstr())
                 .finish(),
-            Line::Raw(r) => f.debug_struct("Raw")
-                .field("text", &r.as_bstr())
+            Line::Raw(r) => f.debug_tuple("Raw")
+                .field(&r.as_bstr())
                 .finish(),
         }
     }
@@ -89,22 +73,22 @@ fn statement_builder<'a>(input: &'a [u8], target: &str) -> IResult<&'a [u8], &'a
 
 fn user_agent(input: &[u8]) -> IResult<&[u8], Line> {
     let (input, agent) = statement_builder(input, "user-agent:")?;
-    Ok((input, Line::UserAgent(UserAgent{ agent })))
+    Ok((input, Line::UserAgent(agent)))
 }
 
 fn allow(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, line) = statement_builder(input, "allow:")?;
-    Ok((input, Line::Allow(Allow{ rule: line })))
+    let (input, rule) = statement_builder(input, "allow:")?;
+    Ok((input, Line::Allow(rule)))
 }
 
 fn disallow(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, line) = statement_builder(input, "disallow:")?;
-    Ok((input, Line::Disallow(Disallow{ rule: line })))
+    let (input, rule) = statement_builder(input, "disallow:")?;
+    Ok((input, Line::Disallow(rule)))
 }
 
 fn sitemap(input: &[u8]) -> IResult<&[u8], Line> {
     let (input, url) = statement_builder(input, "sitemap:")?;
-    Ok((input, Line::Sitemap(Sitemap{ url })))
+    Ok((input, Line::Sitemap(url)))
 }
 
 fn crawl_delay(input: &[u8]) -> IResult<&[u8], Line> {
@@ -115,7 +99,7 @@ fn crawl_delay(input: &[u8]) -> IResult<&[u8], Line> {
         Ok(d) => Some(d),
         Err(_) => None,
     };
-    Ok((input, Line::CrawlDelay(CrawlDelay{ delay })))
+    Ok((input, Line::CrawlDelay(delay)))
 }
 
 fn robots_txt(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
@@ -126,7 +110,8 @@ fn robots_txt(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
 }
 
 fn main() {
-    let txt = "Disallow: /path
+    let txt = "User-Agent: SmerBot
+Disallow: /path
 Allow: /path/exception
 Crawl-delay: 60 # Very slow delay
 
