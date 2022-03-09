@@ -1,4 +1,4 @@
-use super::robots_txt;
+use super::robots_txt_parse;
 
 use super::Line;
 use super::Line::*;
@@ -16,7 +16,7 @@ Crawl-delay: 60 # Very slow delay
 
 sitemap: https://example.com/sitemap.xml";
 
-        let lines = robots_txt(txt.as_bytes()).unwrap().1;
+        let lines = robots_txt_parse(txt.as_bytes()).unwrap().1;
 
         let result: Vec<Line> = vec![
             UserAgent(b"SmerBot"), Disallow(b"/path"), Allow(b"/path/exception"),
@@ -30,7 +30,7 @@ sitemap: https://example.com/sitemap.xml";
     fn test_crawl_delay() {
         // Test correct retrieval
         let good_text = "    crawl-delay  : 60";
-        match robots_txt(good_text.as_bytes()) {
+        match robots_txt_parse(good_text.as_bytes()) {
             Ok((_, lines)) => {
                 assert_eq!(lines.len(), 1);
                 assert_eq!(lines[0], CrawlDelay(Some(60)));
@@ -39,7 +39,7 @@ sitemap: https://example.com/sitemap.xml";
         };
         // Test invalid result
         let bad_text = "Crawl-delay: wait";
-        let r = robots_txt(bad_text.as_bytes());
+        let r = robots_txt_parse(bad_text.as_bytes());
         if let Ok((_, lines)) = &r {
             assert_eq!(lines.len(), 1);
             if let Raw(_) = lines[0] {}
