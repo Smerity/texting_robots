@@ -394,7 +394,7 @@ sitemap: https://example.com/sitemap.xml";
     /*
     #[test]
     fn test_google_allows_disallow_with_no_colon() {
-        // This stands in exact opposition to reppy's unit test lol
+        // This stands in conflict to reppy's "test_reppy_skips_malformed_line"
         let txt = "user-agent FooBot
         disallow /\n";
         let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
@@ -444,6 +444,7 @@ sitemap: https://example.com/sitemap.xml";
 
     #[test]
     fn test_google_grouping_other_rules() {
+        // This test stands in conflict with reppy's "test_robot_grouping_unknown_keys"
         let txt = "User-agent: BarBot
         Sitemap: https://foo.bar/sitemap
         User-agent: *
@@ -453,5 +454,132 @@ sitemap: https://example.com/sitemap.xml";
         let r = Robot::new("BarBot", txt.as_bytes()).unwrap();
         assert!(!r.allowed("http://foo.bar/"));
 
+        let txt = "User-agent: FooBot
+        Invalid-Unknown-Line: unknown
+        User-agent: *
+        Disallow: /\n";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/"));
+        let r = Robot::new("BarBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/"));
     }
+
+    #[test]
+    fn test_google_lines_and_bots_are_case_insensitive() {
+        let txt = "USER-AGENT: FooBot
+        ALLOW: /x/
+        DISALLOW: /
+
+        user-agent: BarBot
+        allow: /x/
+        disallow: /
+
+        uSeR-aGeNt: BAZBOT
+        AlLoW: /x/
+        dIsAlLoW: /";
+
+        for bot in vec!["FooBot", "BarBot", "BazBot"] {
+            let r = Robot::new(bot, txt.as_bytes()).unwrap();
+            assert!(r.allowed("http://foo.bar/x/y"));
+            assert!(!r.allowed("http://foo.bar/a/b"));
+        }
+    }
+
+    #[test]
+    fn test_google_global_groups_secondary() {
+        // Empty robots.txt is handled in a separate test
+
+        let global = "user-agent: *
+        allow: /
+        user-agent: FooBot
+        disallow: /";
+        let r = Robot::new("FooBot", global.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/x/y"));
+        let r = Robot::new("BarBot", global.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/x/y"));
+
+        // If not specified you may assume full permission
+        let specific = "user-agent: FooBot
+        allow: /
+        user-agent: BarBot
+        disallow: /
+        user-agent: BazBot
+        disallow: /";
+        let r = Robot::new("QuxBot", specific.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/x/y"));
+    }
+
+    #[test]
+    fn test_google_allow_disallow_value_case_sensitive() {
+        let txt = "user-agent: FooBot
+        disallow: /x/";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/x/y"));
+
+        let txt = "user-agent: FooBot
+        disallow: /X/";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/x/y"));
+    }
+
+    #[test]
+    fn test_google_longest_match() {
+        let txt = "user-agent: FooBot
+        disallow: /x/page.html
+        allow: /x/";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/x/page.html"));
+
+        let txt = "user-agent: FooBot
+        allow: /x/page.html
+        disallow: /x/";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/x/page.html"));
+        assert!(!r.allowed("http://foo.bar/x/"));
+
+        let txt = "user-agent: FooBot
+        disallow: 
+        allow: ";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/x/page.html"));
+
+        let txt = "user-agent: FooBot
+        disallow: /
+        allow: /";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/x/page.html"));
+
+        let txt = "user-agent: FooBot
+        disallow: /x
+        allow: /x/";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/x"));
+        assert!(r.allowed("http://foo.bar/x/"));
+
+        let txt = "user-agent: FooBot
+        disallow: /x/page.html
+        allow: /x/page.html";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/x/page.html"));
+
+        let txt = "user-agent: FooBot
+        allow: /page
+        disallow: /*.html";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/page.html"));
+        assert!(r.allowed("http://foo.bar/page"));
+
+        // "Longest match wins"
+        let txt = "user-agent: FooBot
+        allow: /x/page.
+        disallow: /*.html";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/x/page.html"));
+        assert!(!r.allowed("http://foo.bar/x/y.html"));
+    }
+
+    // Ignored Google test:
+    // - ID_VerifyValidUserAgentsToObey ensures agents are [A-Za-z_-]
+    // - Skip "GoogleOnly_AcceptUserAgentUpToFirstSpace"
+    //   -(i.e. "Googlebot-Images" being "Googlebot Images" and screwing "Googlebot")
 }
