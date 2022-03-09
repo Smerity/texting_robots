@@ -118,6 +118,7 @@ fn robots_txt_parse(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
 struct Robot<'a> {
     txt: &'a [u8],
     lines: Vec<Line<'a>>,
+    subset: Vec<Line<'a>>,
     delay: Option<u32>,
     sitemaps: Vec<&'a BStr>,
 }
@@ -197,14 +198,15 @@ impl<'a> Robot<'a> {
         }
 
         // Collect the crawl delay
-        let delay = lines.iter().filter_map(|x| match x {
+        let delay = subset.iter().filter_map(|x| match x {
             Line::CrawlDelay(Some(d)) => Some(d),
             _ => None,
         }).copied().next();
 
         Ok(Robot {
-            txt: txt,
-            lines: subset,
+            txt,
+            lines,
+            subset,
             delay,
             sitemaps,
         })

@@ -1,4 +1,4 @@
-use super::robots_txt_parse;
+use super::{Robot, robots_txt_parse};
 
 use super::Line;
 use super::Line::*;
@@ -8,11 +8,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn robots_txt_broken_into_lines() {
+    fn test_parser_line_elements() {
         let txt = "User-Agent: SmerBot
 Disallow: /path
 Allow:    /path/exception   # ONLY THIS IS ALLOWED
-Crawl-delay: 60 # Very slow delay
+Crawl-delay : 60 # Very slow delay
 
 sitemap: https://example.com/sitemap.xml";
 
@@ -27,7 +27,7 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
-    fn test_crawl_delay() {
+    fn test_parser_crawl_delay() {
         // Test correct retrieval
         let good_text = "    crawl-delay  : 60";
         match robots_txt_parse(good_text.as_bytes()) {
@@ -47,5 +47,48 @@ sitemap: https://example.com/sitemap.xml";
                 panic!("Invalid Crawl-Delay not correctly handled")
             }
         }
+    }
+
+    #[test]
+    fn test_robot_retrieve_crawl_delay() {
+        let txt = "User-Agent: A
+        Crawl-Delay: 42
+        # A B and the other Agent ...
+        User-Agent: B
+        # Agent C
+        # will have the same crawl delay
+        User-Agent: C
+        Crawl-Delay: 420
+        User-Agent: *
+        CRAWL-Delay : 3600";
+
+        let r = Robot::new("A", txt.as_bytes()).unwrap();
+        assert_eq!(r.delay, Some(42));
+        let r = Robot::new("B", txt.as_bytes()).unwrap();
+        assert_eq!(r.delay, Some(420));
+        let r = Robot::new("C", txt.as_bytes()).unwrap();
+        assert_eq!(r.delay, Some(420));
+        let r = Robot::new("D", txt.as_bytes()).unwrap();
+        assert_eq!(r.delay, Some(3600));
+    }
+
+    #[test]
+    fn test_robot_retrieve_sitemaps() {
+        let txt = "user-agent: otherbot
+        disallow: /kale
+
+        sitemap: https://example.com/sitemap.xml
+        Sitemap: https://cdn.example.org/other-sitemap.xml
+        siteMAP: https://ja.example.org/テスト-サイトマップ.xml";
+        let sitemaps = vec![
+            "https://example.com/sitemap.xml",
+            "https://cdn.example.org/other-sitemap.xml",
+            "https://ja.example.org/テスト-サイトマップ.xml"
+        ];
+
+        let r = Robot::new("otherbot", txt.as_bytes()).unwrap();
+        assert_eq!(r.sitemaps, sitemaps);
+        let r = Robot::new("blah", txt.as_bytes()).unwrap();
+        assert_eq!(r.sitemaps, sitemaps);
     }
 }
