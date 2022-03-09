@@ -92,6 +92,11 @@ fn allow(input: &[u8]) -> IResult<&[u8], Line> {
 
 fn disallow(input: &[u8]) -> IResult<&[u8], Line> {
     let (input, rule) = statement_builder(input, "disallow")?;
+    if rule.is_empty() {
+        // "Disallow:" is equivalent to allow all
+        // See: https://moz.com/learn/seo/robotstxt and RFC example
+        return Ok((input, Line::Allow(b"/")))
+    }
     Ok((input, Line::Disallow(rule)))
 }
 
@@ -112,6 +117,7 @@ fn crawl_delay(input: &[u8]) -> IResult<&[u8], Line> {
 }
 
 fn robots_txt_parse(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
+    // TODO: Google limits to 500KB of data - should that be done here?
     let (input, (lines, _)) = many_till(
         alt((user_agent, allow, disallow, sitemap, crawl_delay, line)
     ), eof)(input)?;
@@ -146,9 +152,7 @@ impl<'a> Robot<'a> {
             Ok((_, lines)) => lines,
             Err(_) => return Err("Failed to parse robots.txt"),
         };
-        /*for (idx, line) in lines.iter().enumerate() {
-            println!("{:02}: {:?}", idx, line);
-        }*/
+        //for (idx, line) in lines.iter().enumerate() { println!("{:02}: {:?}", idx, line); }
 
         let agent = agent.to_ascii_lowercase();
         let mut agent = agent.as_str();
@@ -256,6 +260,9 @@ impl<'a> Robot<'a> {
             //Err(_) => return Err("Failed to parse URL"),
             Err(_) => raw_url,
         };
+        if url == "/robots.txt" {
+            return true;
+        }
 
         let mut matches: Vec<(isize, bool, &Regex)> = self.rules.iter().filter_map(|(is_allowed, rule)| {
             rule.find(url).map(|m| (m.end() as isize, *is_allowed, rule))

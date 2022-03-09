@@ -258,4 +258,109 @@ sitemap: https://example.com/sitemap.xml";
         let r = Robot::new("AGeNT", txt.as_bytes()).unwrap();
         assert!(!r.allowed("/path"));
     }
+
+    #[test]
+    fn test_robot_empty_allows_all() {
+        let r = Robot::new("agent", b"").unwrap();
+        assert!(r.sitemaps.is_empty());
+        assert_eq!(r.delay, None);
+        assert!(r.allowed("/"));
+        assert!(r.allowed("/foo"));
+        assert!(r.allowed("/foo/bar"));
+    }
+
+    #[test]
+    fn test_robot_comments() {
+        let txt = "User-Agent: *  # comment saying it's the default agent
+        Allow: /
+        Disallow: /foo";
+        let r = Robot::new("agent", txt.as_bytes()).unwrap();
+        assert!(r.allowed("/"));
+        assert!(!r.allowed("/foo"));
+        assert!(!r.allowed("/foo/bar"));
+    }
+
+    #[test]
+    fn test_robot_accepts_full_url() {
+        let txt = "User-Agent: *  # comment saying it's the default agent
+        Allow: /
+        Disallow: /foo";
+        let r = Robot::new("agent", txt.as_bytes()).unwrap();
+        assert!(r.allowed("https://example.com/"));
+        assert!(!r.allowed("https://example.com/foo"));
+        assert!(!r.allowed("https://example.com/foo/bar"));
+        assert!(r.allowed("https://example.com/found"));
+    }
+
+    #[test]
+    fn test_robot_skips_malformed_line() {
+        // Note: This conflicts with Google as they allow "Disallow /path"
+        let txt = "User-Agent: agent
+        Disallow /no/colon/in/this/line";
+        let r = Robot::new("agent", txt.as_bytes()).unwrap();
+        assert!(r.allowed("/no/colon/in/this/line"));
+    }
+
+    // TODO: Allow for HTTP status code consideration
+    // See: Robots.fetch examples
+
+    // TODO: Add a way for collecting the robots.txt URL from a target URL
+
+    // Ignored reppy tests:
+    // - test_utf8_bom: Google considers any line with bom as malformed
+
+    #[test]
+    fn test_robot_rfc_example() {
+        let txt = "# /robots.txt for http://www.fict.org/
+        # comments to webmaster@fict.org
+
+        User-agent: unhipbot
+        Disallow: /
+
+        User-agent: webcrawler
+        User-agent: excite
+        Disallow:
+
+        User-agent: *
+        Disallow: /org/plans.html
+        Allow: /org/
+        Allow: /serv
+        Allow: /~mak
+        Disallow: /";
+
+        let targets = vec!["/", "/index.html", "/server.html", "/services/fast.html",
+                           "/services/slow.html", "/orgo.gif", "/org/about.html", "/org/plans.html",
+                           "/%7Ejim/jim.html", "/~mak/mak.html"];
+
+        let r = Robot::new("unhipbot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("/robots.txt"));
+        for t in &targets {
+            assert!(!r.allowed(t));
+        }
+
+        let r = Robot::new("webcrawler", txt.as_bytes()).unwrap();
+        assert!(r.allowed("/robots.txt"));
+        for t in &targets {
+            assert!(r.allowed(t), "Allowed failed on {}", t);
+        }
+
+        let r = Robot::new("excite", txt.as_bytes()).unwrap();
+        assert!(r.allowed("/robots.txt"));
+        for t in &targets {
+            assert!(r.allowed(t), "Allowed failed on {}", t);
+        }
+
+        let r = Robot::new("anything", txt.as_bytes()).unwrap();
+        assert!(r.allowed("/robots.txt"));
+        assert!(!r.allowed("/"));
+        assert!(!r.allowed("/index.html"));
+        assert!(r.allowed("/server.html"));
+        assert!(r.allowed("/services/fast.html"));
+        assert!(r.allowed("/services/slow.html"));
+        assert!(!r.allowed("/orgo.gif"));
+        assert!(r.allowed("/org/about.html"));
+        assert!(!r.allowed("/org/plans.html"));
+        assert!(!r.allowed("/%7Ejim/jim.html"));
+        assert!(r.allowed("/~mak/mak.html"));
+    }
 }
