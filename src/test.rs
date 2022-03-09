@@ -603,6 +603,50 @@ sitemap: https://example.com/sitemap.xml";
         assert!(r.allowed("http://foo.bar/foo/bar/%E3%83%84"));
         assert!(r.allowed("/foo/bar/ツ"));
         assert!(r.allowed("/foo/bar/%E3%83%84"));
+
+        let txt = "User-agent: FooBot
+        Disallow: /
+        Allow: /foo/bar/%E3%83%84";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/foo/bar/%E3%83%84"));
+        // Google's test says this should fail but I think that's as they don't have percent encoding in pipeline
+        assert!(r.allowed("http://foo.bar/foo/bar/ツ"));
+
+        let txt = "User-agent: FooBot
+        Disallow: /
+        Allow: /foo/bar/%62%61%7A";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/foo/bar/baz"));
+        assert!(r.allowed("http://foo.bar/foo/bar/%62%61%7A"));
+    }
+
+    #[test]
+    fn test_google_special_characters() {
+        let txt = "User-agent: FooBot
+        Disallow: /foo/bar/quz
+        Allow: /foo/*/qux";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/foo/bar/quz"));
+        assert!(r.allowed("http://foo.bar/foo/quz"));
+        assert!(r.allowed("http://foo.bar/foo//quz"));
+        assert!(r.allowed("http://foo.bar/foo/bax/quz"));
+
+        let txt = "User-agent: FooBot
+        Disallow: /foo/bar$
+        Allow: /foo/bar/qux";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/foo/bar"));
+        assert!(r.allowed("http://foo.bar/foo/bar/qux"));
+        assert!(r.allowed("http://foo.bar/foo/bar/"));
+        assert!(r.allowed("http://foo.bar/foo/bar/baz"));
+
+        let txt = "User-agent: FooBot
+        # Disallow: /
+        Disallow: /foo/quz#qux
+        Allow: /";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/foo/bar"));
+        assert!(!r.allowed("http://foo.bar/foo/quz"));
     }
 
     // Ignored Google test:
