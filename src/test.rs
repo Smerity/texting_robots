@@ -587,6 +587,24 @@ sitemap: https://example.com/sitemap.xml";
         assert!(!r.allowed("http://foo.bar/y/page"));
     }
 
+    #[test]
+    fn test_google_encoding() {
+        let txt = "User-agent: FooBot
+        Disallow: /
+        Allow: /foo/bar?qux=taz&baz=http://foo.bar?tar&par";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/foo/bar?qux=taz&baz=http://foo.bar?tar&par"));
+
+        let txt = "User-agent: FooBot
+        Disallow: /
+        Allow: /foo/bar/ツ";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/foo/bar/ツ"));
+        assert!(r.allowed("http://foo.bar/foo/bar/%E3%83%84"));
+        assert!(r.allowed("/foo/bar/ツ"));
+        assert!(r.allowed("/foo/bar/%E3%83%84"));
+    }
+
     // Ignored Google test:
     // - ID_VerifyValidUserAgentsToObey ensures agents are [A-Za-z_-]
     // - Skip "GoogleOnly_AcceptUserAgentUpToFirstSpace"

@@ -12,12 +12,20 @@ use nom::multi::{many_till};
 
 use nom::lib::std::result::Result::Err;
 
+use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
+
 use regex::Regex;
 
 use url::{Url, Position};
 
 #[cfg(test)]
 mod test;
+
+fn percent_encode(input: &str) -> String {
+    // Paths outside ASCII must be percent encoded
+    const FRAGMENT: &AsciiSet = &CONTROLS.add(b' ').add(b'"').add(b'<').add(b'>').add(b'`');
+    utf8_percent_encode(input, FRAGMENT).to_string()
+}
 
 #[derive(PartialEq, Eq, Copy, Clone)]
 enum Line<'a> {
@@ -243,7 +251,12 @@ impl<'a> Robot<'a> {
                 Ok(pat) => pat,
                 Err(_) => continue,
             };
-            let pat = regex::escape(pat)
+
+            // Paths outside ASCII must be percent encoded
+            let pat = percent_encode(pat);
+
+            // Escape the pattern (except for the * and $ specific operators) for use in regular expressions
+            let pat = regex::escape(&pat)
                 .replace("\\*", ".*").replace("\\$", "$");
 
             let rule = regex::RegexBuilder::new(&pat)
@@ -266,17 +279,21 @@ impl<'a> Robot<'a> {
     fn allowed(&self, raw_url: &str) -> bool {
         // Try to get only the path + query of the URL
         // Note: If this fails we assume the passed URL is valid
+        let mut pct_encoded: Option<String> = None;
         let parsed = Url::parse(raw_url);
         let url = match parsed.as_ref() {
+            // The Url library performs percent encoding
             Ok(url) => &url[Position::BeforePath..],
-            // TODO: How do we handle this cleanly..?
-            //Err(_) => return Err("Failed to parse URL"),
-            Err(_) => raw_url,
+            Err(_) => {
+                pct_encoded = Some(percent_encode(raw_url));
+                &(pct_encoded.as_ref()).unwrap()
+            },
         };
         if url == "/robots.txt" {
             return true;
         }
 
+        //println!("{:?} {:?}", url, self.rules);
         let mut matches: Vec<&(isize, bool, Regex)> = self.rules.iter().filter(|(_, _, rule)| {
             rule.is_match(url)
         }).collect();
