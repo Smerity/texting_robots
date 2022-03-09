@@ -136,9 +136,11 @@ struct Robot<'a> {
 
 impl fmt::Debug for Robot<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RobotsResult")
+        f.debug_struct("Robot")
             //.field("txt", &self.txt.as_bstr())
-            .field("lines", &self.lines)
+            //.field("lines", &self.lines)
+            .field("subset", &self.subset)
+            .field("rules", &self.rules)
             .field("delay", &self.delay)
             .field("sitemaps", &self.sitemaps)
             .finish()
@@ -165,9 +167,13 @@ impl<'a> Robot<'a> {
         }).collect();
 
         // Filter out any lines that aren't User-Agent, Allow, Disallow, or CrawlDelay
-        // DISABLED: reppy's "test_robot_grouping_unknown_keys" test suggests these lines should be kept
+        // CONFLICT: reppy's "test_robot_grouping_unknown_keys" test suggests these lines should be kept
+        let lines: Vec<Line<'a>> = lines.iter()
+            .filter(|x| !matches!(x, Line::Sitemap(_) | Line::Raw(_)))
+            .copied().collect();
+        // Minimum needed to "win" Google's `test_google_grouping` test: remove blank lines
         //let lines: Vec<Line<'a>> = lines.iter()
-        //    .filter(|x| !matches!(x, Line::Sitemap(_) | Line::Raw(_)))
+        //    .filter(|x| !matches!(x, Line::Raw(b"")))
         //    .copied().collect();
 
         // Check if our crawler is explicitly referenced, otherwise we're catch all agent ("*")
@@ -197,11 +203,18 @@ impl<'a> Robot<'a> {
             if let Line::UserAgent(_) = line {
                 capturing = false;
             }
-            while let Line::UserAgent(ua) = line {
+            while idx < lines.len() && matches!(line, Line::UserAgent(_)) {
+                // Unreachable should never trigger as we ensure it's always a UserAgent
+                let ua = match line {
+                    Line::UserAgent(ua) => ua.as_bstr(),
+                    _ => unreachable!(),
+                };
                 if agent.as_bytes() == ua.as_bstr().to_ascii_lowercase() {
                     capturing = true;
                 }
                 idx += 1;
+                // If it's User-Agent until the end just escape to avoid potential User-Agent capture
+                if idx == lines.len() { break; }
                 line = lines[idx];
             }
 

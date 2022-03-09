@@ -50,6 +50,15 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
+    fn test_robot_all_user_agents() {
+        let txt = "User-agent: *
+        User-agent: BobBot
+        User-AGENT: SmerBot";
+        let r = Robot::new("SmerBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("/index.html"));
+    }
+
+    #[test]
     fn test_robot_retrieve_crawl_delay() {
         let txt = "User-Agent: A
         Crawl-Delay: 42
@@ -164,9 +173,11 @@ sitemap: https://example.com/sitemap.xml";
         assert!(!r.allowed("/oauth"));
     }
 
-    // From reppy tests
+    /// REPPY TESTS
+    ////////////////////////////////////////////////////////////////////////////////
+
     #[test]
-    fn test_robot_no_leading_user_agent() {
+    fn test_reppy_no_leading_user_agent() {
         let txt = "Disallow: /path
         Allow: /path/exception
         Crawl-delay: 7";
@@ -179,7 +190,7 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
-    fn test_robot_honours_default() {
+    fn test_reppy_honours_default() {
         let txt = "User-agent: *
         Disallow: /tmp
 
@@ -191,7 +202,7 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
-    fn test_robot_honours_specific_user_agent() {
+    fn test_reppy_honours_specific_user_agent() {
         let txt = "User-agent: *
         Disallow: /tmp
 
@@ -203,7 +214,7 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
-    fn test_robot_grouping() {
+    fn test_reppy_grouping() {
         let txt = "User-agent: one
         User-agent: two
         Disallow: /tmp";
@@ -213,8 +224,11 @@ sitemap: https://example.com/sitemap.xml";
         assert!(!r.allowed("/tmp"));
     }
 
+    /*
+    // Disabled as it conflicts with a Google unit test
+    // There's also a legitimate interpretation where disallow takes precedence
     #[test]
-    fn test_robot_grouping_unknown_keys() {
+    fn test_reppy_grouping_unknown_keys() {
         let txt = "User-agent: *
         Disallow: /content/2/
         User-agent: *
@@ -227,9 +241,10 @@ sitemap: https://example.com/sitemap.xml";
         let r = Robot::new("ia_archiver", txt.as_bytes()).unwrap();
         assert!(!r.allowed("/bar"));
     }
+    */
 
     #[test]
-    fn test_robot_separates_agents() {
+    fn test_reppy_separates_agents() {
         let txt = "User-agent: one
         Crawl-delay: 1
 
@@ -242,7 +257,7 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
-    fn test_robot_finds_and_exposes_sitemaps() {
+    fn test_reppy_finds_and_exposes_sitemaps() {
         let txt = "            Sitemap: http://a.com/sitemap.xml
         Sitemap: http://b.com/sitemap.xml";
         let r = Robot::new("agent", txt.as_bytes()).unwrap();
@@ -250,7 +265,7 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
-    fn test_robot_case_insensitivity() {
+    fn test_reppy_case_insensitivity() {
         let txt = "User-agent: Agent
         Disallow: /path";
         let r = Robot::new("agent", txt.as_bytes()).unwrap();
@@ -260,7 +275,7 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
-    fn test_robot_empty_allows_all() {
+    fn test_reppy_empty_allows_all() {
         let r = Robot::new("agent", b"").unwrap();
         assert!(r.sitemaps.is_empty());
         assert_eq!(r.delay, None);
@@ -270,7 +285,7 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
-    fn test_robot_comments() {
+    fn test_reppy_comments() {
         let txt = "User-Agent: *  # comment saying it's the default agent
         Allow: /
         Disallow: /foo";
@@ -281,7 +296,7 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
-    fn test_robot_accepts_full_url() {
+    fn test_reppy_accepts_full_url() {
         let txt = "User-Agent: *  # comment saying it's the default agent
         Allow: /
         Disallow: /foo";
@@ -293,7 +308,7 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
-    fn test_robot_skips_malformed_line() {
+    fn test_reppy_skips_malformed_line() {
         // Note: This conflicts with Google as they allow "Disallow /path"
         let txt = "User-Agent: agent
         Disallow /no/colon/in/this/line";
@@ -362,5 +377,81 @@ sitemap: https://example.com/sitemap.xml";
         assert!(!r.allowed("/org/plans.html"));
         assert!(!r.allowed("/%7Ejim/jim.html"));
         assert!(r.allowed("/~mak/mak.html"));
+    }
+
+    /// GOOGLE TESTS
+    ////////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn test_google_foo_bar() {
+        let text = "foo: FooBot
+        bar: /\n";
+        let r = Robot::new("FooBot", text.as_bytes()).unwrap();
+        assert!(r.allowed("/"));
+        assert!(r.allowed("/foo"));
+    }
+
+    /*
+    #[test]
+    fn test_google_allows_disallow_with_no_colon() {
+        // This stands in exact opposition to reppy's unit test lol
+        let txt = "user-agent FooBot
+        disallow /\n";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("/"));
+    }
+    */
+
+    #[test]
+    fn test_google_grouping() {
+        let txt = "allow: /foo/bar/
+
+        user-agent: FooBot
+        disallow: /
+        allow: /x/
+        user-agent: BarBot
+        disallow: /
+        allow: /y/
+
+
+        allow: /w/
+        user-agent: BazBot
+
+        user-agent: FooBot
+        allow: /z/
+        disallow: /";
+
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/x/b"));
+        assert!(r.allowed("http://foo.bar/z/d"));
+        assert!(!r.allowed("http://foo.bar/y/c"));
+        // Line outside of groupings ignored
+        assert!(!r.allowed("http://foo.bar/foo/bar/"));
+
+        let r = Robot::new("BarBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/y/c"));
+        assert!(r.allowed("http://foo.bar/w/a"));
+        assert!(!r.allowed("http://foo.bar/z/d"));
+        // Line outside of groupings ignored
+        assert!(!r.allowed("http://foo.bar/foo/bar/"));
+
+        let r = Robot::new("BazBot", txt.as_bytes()).unwrap();
+        println!("{:?}", r);
+        assert!(r.allowed("http://foo.bar/z/d"));
+        // Line outside of groupings ignored
+        assert!(!r.allowed("http://foo.bar/foo/bar/"));
+    }
+
+    #[test]
+    fn test_google_grouping_other_rules() {
+        let txt = "User-agent: BarBot
+        Sitemap: https://foo.bar/sitemap
+        User-agent: *
+        Disallow: /";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/"));
+        let r = Robot::new("BarBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/"));
+
     }
 }
