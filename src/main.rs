@@ -12,6 +12,10 @@ use nom::multi::{many_till};
 
 use nom::lib::std::result::Result::Err;
 
+use regex::Regex;
+
+use url::{Url, Position};
+
 #[cfg(test)]
 mod test;
 
@@ -119,6 +123,7 @@ struct Robot<'a> {
     txt: &'a [u8],
     lines: Vec<Line<'a>>,
     subset: Vec<Line<'a>>,
+    rules: Vec<(bool, Regex)>,
     delay: Option<u32>,
     sitemaps: Vec<&'a BStr>,
 }
@@ -141,9 +146,9 @@ impl<'a> Robot<'a> {
             Ok((_, lines)) => lines,
             Err(_) => return Err("Failed to parse robots.txt"),
         };
-        for (idx, line) in lines.iter().enumerate() {
+        /*for (idx, line) in lines.iter().enumerate() {
             println!("{:02}: {:?}", idx, line);
-        }
+        }*/
 
         let agent = agent.to_ascii_lowercase();
         let mut agent = agent.as_str();
@@ -156,9 +161,10 @@ impl<'a> Robot<'a> {
         }).collect();
 
         // Filter out any lines that aren't User-Agent, Allow, Disallow, or CrawlDelay
-        let lines: Vec<Line<'a>> = lines.iter()
-            .filter(|x| !matches!(x, Line::Sitemap(_) | Line::Raw(_)))
-            .copied().collect();
+        // DISABLED: reppy's "test_robot_grouping_unknown_keys" test suggests these lines should be kept
+        //let lines: Vec<Line<'a>> = lines.iter()
+        //    .filter(|x| !matches!(x, Line::Sitemap(_) | Line::Raw(_)))
+        //    .copied().collect();
 
         // Check if our crawler is explicitly referenced, otherwise we're catch all agent ("*")
         let references_our_bot = lines.iter().any(|x| match x {
@@ -172,8 +178,12 @@ impl<'a> Robot<'a> {
         }
 
         // Collect only the lines relevant to this user agent
-        let mut subset = vec![];
+        // If there are no User-Agent lines then we capture all
         let mut capturing = false;
+        if lines.iter().filter(|x| matches!(x, Line::UserAgent(_))).count() == 0 {
+            capturing = true;
+        }
+        let mut subset = vec![];
         let mut idx: usize = 0;
         while idx < lines.len() {
             let mut line = lines[idx];
@@ -203,13 +213,62 @@ impl<'a> Robot<'a> {
             _ => None,
         }).copied().next();
 
+        // Prepare the regex patterns for matching rules
+        let mut rules = vec![];
+        for line in subset.iter()
+                .filter(|x| matches!(x, Line::Allow(_) | Line::Disallow(_))) {
+            let (is_allowed, pat) = match line {
+                Line::Allow(pat) => (true, *pat),
+                Line::Disallow(pat) => (false, *pat),
+                _ => unreachable!(),
+            };
+            let pat = match pat.to_str() {
+                Ok(pat) => pat,
+                Err(_) => continue,
+            };
+            let pat = regex::escape(pat)
+                .replace("\\*", ".*").replace("\\$", "$");
+
+            let rule = regex::RegexBuilder::new(&pat)
+                // Apply computation / memory limits against adversarial actors
+                .dfa_size_limit(10 * (2 << 10)).size_limit(10 * (1 << 10))
+                .build().unwrap();
+            rules.push((is_allowed, rule));
+        }
+
         Ok(Robot {
             txt,
             lines,
             subset,
+            rules,
             delay,
             sitemaps,
         })
+    }
+
+    fn allowed(&self, raw_url: &str) -> bool {
+        // Try to get only the path + query of the URL
+        // Note: If this fails we assume the passed URL is valid
+        let parsed = Url::parse(raw_url);
+        let url = match parsed.as_ref() {
+            Ok(url) => &url[Position::BeforePath..],
+            // TODO: How do we handle this cleanly..?
+            //Err(_) => return Err("Failed to parse URL"),
+            Err(_) => raw_url,
+        };
+
+        let mut matches: Vec<(isize, bool, &Regex)> = self.rules.iter().filter_map(|(is_allowed, rule)| {
+            rule.find(url).map(|m| (m.end() as isize, *is_allowed, rule))
+        }).collect();
+
+        // Sort according to the longest match
+        matches.sort_by_key(|x| (-x.0, !x.1));
+
+        match matches.first() {
+            Some((_, is_allowed, _)) => *is_allowed,
+            // If there are no rules we assume we're allowed
+            None => true,
+        }
     }
 }
 
