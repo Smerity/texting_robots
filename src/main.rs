@@ -3,15 +3,15 @@ use core::fmt;
 use bstr::{ByteSlice};
 
 use nom::branch::alt;
+use nom::sequence::preceded;
 use nom::{IResult};
-use nom::bytes::complete::{take_while, tag_no_case};
+use nom::bytes::complete::{take_while, tag_no_case, tag};
 use nom::character::complete::{line_ending};
-use nom::combinator::{opt, eof};
+use nom::combinator::opt;
 use nom::multi::many0;
 
-#[derive(Debug, PartialEq)]
-struct RobotLines<'a> {
-    pub lines: Vec<&'a [u8]>,
+struct UserAgent<'a> {
+    pub agent: &'a [u8],
 }
 
 struct Allow<'a> {
@@ -27,6 +27,7 @@ struct CrawlDelay {
 }
 
 enum Line<'a> {
+    UserAgent(UserAgent<'a>),
     Allow(Allow<'a>),
     Disallow(Disallow<'a>),
     CrawlDelay(CrawlDelay),
@@ -36,6 +37,9 @@ enum Line<'a> {
 impl fmt::Debug for Line<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Line::UserAgent(ua) => f.debug_struct("UserAgent")
+                .field("agent", &ua.agent)
+                .finish(),
             Line::Allow(a) => f.debug_struct("Allow")
                 .field("rule", &a.rule.as_bstr())
                 .finish(),
@@ -56,39 +60,49 @@ fn is_not_line_ending(c: u8) -> bool {
     c != b'\n' && c != b'\r'
 }
 
+fn is_not_line_ending_or_comment(c: u8) -> bool {
+    c != b'\n' && c != b'\r' && c != b'#'
+}
+
 fn line(input: &[u8]) -> IResult<&[u8], Line> {
     //is_alphabetic)(input); //
     let (input, line) = take_while(is_not_line_ending)(input)?;
     if line.is_empty() {
         return Err(nom::Err::Error(nom::error::Error{ input, code: nom::error::ErrorKind::Eof }));
     }
-    //let (input, line) = is_not("\n")(input)?;
     println!("line: {:?}", line.as_bstr());
     let (input, _) = opt(line_ending)(input)?;
     Ok((input, Line::Raw(line)))
 }
 
+fn statement_builder<'a>(input: &'a [u8], target: &str) -> IResult<&'a [u8], &'a [u8]> {
+    let (input, _) = tag_no_case(target)(input)?;
+    let (input, line) = take_while(is_not_line_ending_or_comment)(input)?;
+    let (input, _) = opt(preceded(tag("#"), take_while(is_not_line_ending)))(input)?;
+    let (input, _) = opt(line_ending)(input)?;
+    Ok((input, line))
+}
+
+fn user_agent(input: &[u8]) -> IResult<&[u8], Line> {
+    let (input, agent) = statement_builder(input, "user-agent: ")?;
+    Ok((input, Line::UserAgent(UserAgent{ agent })))
+}
+
 fn allow(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, _) = tag_no_case("allow: ")(input)?;
-    let (input, line) = take_while(is_not_line_ending)(input)?;
-    let (input, _) = opt(alt((line_ending, eof)))(input)?;
+    let (input, line) = statement_builder(input, "allow: ")?;
     Ok((input, Line::Allow(Allow{ rule: line })))
 }
 
 fn disallow(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, _) = tag_no_case("disallow: ")(input)?;
-    let (input, line) = take_while(is_not_line_ending)(input)?;
-    let (input, _) = opt(alt((line_ending, eof)))(input)?;
+    let (input, line) = statement_builder(input, "disallow: ")?;
     Ok((input, Line::Disallow(Disallow{ rule: line })))
 }
 
 fn crawl_delay(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, _) = tag_no_case("crawl-delay: ")(input)?;
-    let (input, line) = take_while(is_not_line_ending)(input)?;
-    let (input, _) = opt(alt((line_ending, eof)))(input)?;
+    let (input, time) = statement_builder(input, "crawl-delay: ")?;
 
-    let t= std::str::from_utf8(line).unwrap_or("1");
-    let delay = match t.parse::<u32>() {
+    let time= std::str::from_utf8(time).unwrap_or("1");
+    let delay = match time.parse::<u32>() {
         Ok(d) => Some(d),
         Err(_) => None,
     };
@@ -96,7 +110,7 @@ fn crawl_delay(input: &[u8]) -> IResult<&[u8], Line> {
 }
 
 fn robots_txt(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
-    let (input, lines) = many0(alt((allow, disallow, crawl_delay, line)))(input)?;
+    let (input, lines) = many0(alt((user_agent, allow, disallow, crawl_delay, line)))(input)?;
     Ok((input, lines))
 }
 
