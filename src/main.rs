@@ -114,16 +114,36 @@ fn robots_txt_parse(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
     Ok((input, lines))
 }
 
-#[derive(Debug)]
 #[allow(dead_code)]
-struct RobotsResult<'a> {
+struct Robot<'a> {
+    txt: &'a [u8],
     lines: Vec<Line<'a>>,
     delay: Option<u32>,
     sitemaps: Vec<&'a BStr>,
 }
 
-impl<'a> RobotsResult<'a> {
-    fn new(agent: &str, lines: Vec<Line<'a>>) -> Self {
+impl fmt::Debug for Robot<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RobotsResult")
+            //.field("txt", &self.txt.as_bstr())
+            .field("lines", &self.lines)
+            .field("delay", &self.delay)
+            .field("sitemaps", &self.sitemaps)
+            .finish()
+    }
+}
+
+impl<'a> Robot<'a> {
+    fn new(agent: &str, txt: &'a [u8]) -> Result<Self, &'static str> {
+        // Parse robots.txt
+        let lines = match robots_txt_parse(txt.as_bytes()) {
+            Ok((_, lines)) => lines,
+            Err(_) => return Err("Failed to parse robots.txt"),
+        };
+        for (idx, line) in lines.iter().enumerate() {
+            println!("{:02}: {:?}", idx, line);
+        }
+
         let agent = agent.to_ascii_lowercase();
         let mut agent = agent.as_str();
 
@@ -182,11 +202,12 @@ impl<'a> RobotsResult<'a> {
             _ => None,
         }).copied().next();
 
-        RobotsResult {
+        Ok(Robot {
+            txt: txt,
             lines: subset,
             delay,
             sitemaps,
-        }
+        })
     }
 }
 
@@ -206,16 +227,8 @@ sitemap: https://example.com/sitemap.xml";
 
     println!("Robots.txt:\n---\n{}\n", txt);
 
-    let r = robots_txt_parse(txt.as_bytes());
-    println!("Parsed:\n---\n{:?}\n---\n", &r);
-    if let Ok((_, rlines)) = &r {
-        for (idx, line) in rlines.iter().enumerate() {
-            println!("{}: {:?}", idx, line);
-        }
-    }
-
-    let rr = RobotsResult::new("SmerBot", r.unwrap().1);
-    println!("\n---\n{:?}\n---\n", &rr);
+    let r = Robot::new("SmerBot", txt.as_bytes());
+    println!("\n---\n{:?}\n---\n", &r);
 
     println!("Expanding regex pattern:");
     for (pat, examples) in vec![
