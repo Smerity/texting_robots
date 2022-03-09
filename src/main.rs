@@ -6,14 +6,16 @@ use nom::branch::alt;
 use nom::sequence::preceded;
 use nom::{IResult};
 use nom::bytes::complete::{take_while, tag_no_case, tag};
-use nom::character::complete::{line_ending};
+use nom::character::complete::{line_ending, space0};
 use nom::combinator::{opt, eof};
 use nom::multi::{many_till};
+
+use nom::lib::std::result::Result::Err;
 
 #[cfg(test)]
 mod test;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 enum Line<'a> {
     UserAgent(&'a [u8]),
     Allow(&'a [u8]),
@@ -63,7 +65,8 @@ fn line(input: &[u8]) -> IResult<&[u8], Line> {
 }
 
 fn statement_builder<'a>(input: &'a [u8], target: &str) -> IResult<&'a [u8], &'a [u8]> {
-    let (input, _) = tag_no_case(target)(input)?;
+    let (input, _) = preceded(space0, tag_no_case(target))(input)?;
+    let (input, _) = preceded(space0, tag(":"))(input)?;
     let (input, line) = take_while(is_not_line_ending_or_comment)(input)?;
     let (input, _) = opt(preceded(tag("#"), take_while(is_not_line_ending)))(input)?;
     let (input, _) = opt(line_ending)(input)?;
@@ -72,32 +75,32 @@ fn statement_builder<'a>(input: &'a [u8], target: &str) -> IResult<&'a [u8], &'a
 }
 
 fn user_agent(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, agent) = statement_builder(input, "user-agent:")?;
+    let (input, agent) = statement_builder(input, "user-agent")?;
     Ok((input, Line::UserAgent(agent)))
 }
 
 fn allow(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, rule) = statement_builder(input, "allow:")?;
+    let (input, rule) = statement_builder(input, "allow")?;
     Ok((input, Line::Allow(rule)))
 }
 
 fn disallow(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, rule) = statement_builder(input, "disallow:")?;
+    let (input, rule) = statement_builder(input, "disallow")?;
     Ok((input, Line::Disallow(rule)))
 }
 
 fn sitemap(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, url) = statement_builder(input, "sitemap:")?;
+    let (input, url) = statement_builder(input, "sitemap")?;
     Ok((input, Line::Sitemap(url)))
 }
 
 fn crawl_delay(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, time) = statement_builder(input, "crawl-delay:")?;
+    let (input, time) = statement_builder(input, "crawl-delay")?;
 
     let time= std::str::from_utf8(time).unwrap_or("1");
     let delay = match time.parse::<u32>() {
         Ok(d) => Some(d),
-        Err(_) => None,
+        Err(_) => return Err(nom::Err::Error(nom::error::Error{ input, code: nom::error::ErrorKind::Digit })),
     };
     Ok((input, Line::CrawlDelay(delay)))
 }
