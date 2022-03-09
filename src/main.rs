@@ -129,7 +129,7 @@ struct Robot<'a> {
     txt: &'a [u8],
     lines: Vec<Line<'a>>,
     subset: Vec<Line<'a>>,
-    rules: Vec<(bool, usize, Regex)>,
+    rules: Vec<(isize, bool, Regex)>,
     delay: Option<u32>,
     sitemaps: Vec<&'a BStr>,
 }
@@ -250,7 +250,7 @@ impl<'a> Robot<'a> {
                 // Apply computation / memory limits against adversarial actors
                 .dfa_size_limit(10 * (2 << 10)).size_limit(10 * (1 << 10))
                 .build().unwrap();
-            rules.push((is_allowed, original.len(), rule));
+            rules.push((original.len() as isize, is_allowed, rule));
         }
 
         Ok(Robot {
@@ -277,8 +277,8 @@ impl<'a> Robot<'a> {
             return true;
         }
 
-        let mut matches: Vec<(isize, bool, &Regex)> = self.rules.iter().filter_map(|(is_allowed, rule_len, rule)| {
-            rule.find(url).map(|_| (*rule_len as isize, *is_allowed, rule))
+        let mut matches: Vec<&(isize, bool, Regex)> = self.rules.iter().filter(|(_, _, rule)| {
+            rule.is_match(url)
         }).collect();
 
         // Sort according to the longest match
