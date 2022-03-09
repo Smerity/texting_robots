@@ -576,6 +576,15 @@ sitemap: https://example.com/sitemap.xml";
         let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
         assert!(r.allowed("http://foo.bar/x/page.html"));
         assert!(!r.allowed("http://foo.bar/x/y.html"));
+
+        let txt = "User-agent: *
+        Disallow: /x/
+        User-agent: FooBot
+        Disallow: /y/";
+        // Most specific group for FooBot allows implicitly /x/page
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/x/page"));
+        assert!(!r.allowed("http://foo.bar/y/page"));
     }
 
     // Ignored Google test:
