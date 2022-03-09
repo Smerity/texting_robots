@@ -115,6 +115,7 @@ fn robots_txt_parse(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct RobotsResult<'a> {
     lines: Vec<Line<'a>>,
     delay: Option<u32>,
@@ -122,7 +123,10 @@ struct RobotsResult<'a> {
 }
 
 impl<'a> RobotsResult<'a> {
-    fn new(lines: Vec<Line<'a>>) -> Self {
+    fn new(agent: &str, lines: Vec<Line<'a>>) -> Self {
+        let agent = agent.to_ascii_lowercase();
+        let mut agent = agent.as_str();
+
         // Collect all sitemaps
         // Why? "The sitemap field isn't tied to any specific user agent and may be followed by all crawlers"
         let sitemaps = lines.iter().filter_map(|x| match x {
@@ -131,23 +135,57 @@ impl<'a> RobotsResult<'a> {
         }).collect();
 
         // Filter out any lines that aren't User-Agent, Allow, Disallow, or CrawlDelay
-        let lines: Vec<Line<'a>> = lines.iter().filter(|x| match x {
-            Line::Sitemap(_) | Line::Raw(_) => false,
-            _ => true,
-        }).copied().collect();
+        let lines: Vec<Line<'a>> = lines.iter()
+            .filter(|x| !matches!(x, Line::Sitemap(_) | Line::Raw(_)))
+            .copied().collect();
 
-        // TODO: Collect only the lines relevant to this user agent
+        // Check if our crawler is explicitly referenced, otherwise we're catch all agent ("*")
+        let references_our_bot = lines.iter().any(|x| match x {
+            Line::UserAgent(ua) => {
+                agent.as_bytes() == ua.as_bstr().to_ascii_lowercase()
+            },
+            _ => false,
+        });
+        if !references_our_bot {
+            agent = "*";
+        }
+
+        // Collect only the lines relevant to this user agent
+        let mut subset = vec![];
+        let mut capturing = false;
+        let mut idx: usize = 0;
+        while idx < lines.len() {
+            let mut line = lines[idx];
+
+            // User-Agents can be given in blocks with rules applicable to all User-Agents in the block
+            // On a new block of User-Agents we're either in it or no longer active
+            if let Line::UserAgent(_) = line {
+                capturing = false;
+            }
+            while let Line::UserAgent(ua) = line {
+                if agent.as_bytes() == ua.as_bstr().to_ascii_lowercase() {
+                    capturing = true;
+                }
+                idx += 1;
+                line = lines[idx];
+            }
+
+            if capturing {
+                subset.push(line);
+            }
+            idx += 1;
+        }
 
         // Collect the crawl delay
         let delay = lines.iter().filter_map(|x| match x {
             Line::CrawlDelay(Some(d)) => Some(d),
             _ => None,
-        }).copied().nth(0);
+        }).copied().next();
 
         RobotsResult {
-            lines,
-            delay: delay,
-            sitemaps: sitemaps,
+            lines: subset,
+            delay,
+            sitemaps,
         }
     }
 }
@@ -158,8 +196,10 @@ Disallow: /path
 Allow: /path/exception
 Crawl-delay: 60 # Very slow delay
 User-Agent: *
+CRAWL-DELAY: 3600
 Disallow: /
 User-Agent: SmerBot
+User-Agent: BobBot
 Allow: /secrets/
 
 sitemap: https://example.com/sitemap.xml";
@@ -174,7 +214,7 @@ sitemap: https://example.com/sitemap.xml";
         }
     }
 
-    let rr = RobotsResult::new(r.unwrap().1);
+    let rr = RobotsResult::new("SmerBot", r.unwrap().1);
     println!("\n---\n{:?}\n---\n", &rr);
 
     println!("Expanding regex pattern:");
