@@ -120,13 +120,30 @@ Crawl-delay: 60 # Very slow delay
 
 sitemap: https://example.com/sitemap.xml";
 
-    println!("{}\n", txt);
+    println!("Robots.txt:\n---\n{}\n", txt);
 
     let r = robots_txt(txt.as_bytes());
+    println!("Parsed:\n---\n{:?}\n---", &r);
     if let Ok((_, rlines)) = &r {
         for (idx, line) in rlines.iter().enumerate() {
             println!("{}: {:?}", idx, line);
         }
     }
-    println!("\n{:?}", &r);
+
+    println!("\nExpanding regex pattern:");
+    for (pat, examples) in vec![
+            ("/fish", vec!["/fish", "/fish.html", "/fish/salmon.html", "/fish.php?id=anything", "/Fish.asp", "/catfish"]),
+            ("/*.php$", vec!["/filename.php", "/folder/filename.php", "/filename.php?parameters", "/filename.php/"]),
+            ("/fish*.php", vec!["/fish.php", "/fishheads/catfish.php?parameters", "/Fish.PHP"]),
+        ] {
+        let mut s = regex::escape(pat);
+        s = s.replace("\\*", ".*").replace("\\$", "$");
+        println!("\t- {} => {}", pat, s);
+        let rb = regex::RegexBuilder::new(&s)
+            .dfa_size_limit(10 * (2 << 10)).size_limit(10 * (1 << 10))
+            .build().unwrap();
+        for ex in examples {
+            println!("\t\t{} => {}", ex, rb.is_match(ex));
+        }
+    }
 }
