@@ -1,6 +1,6 @@
 use core::fmt;
 
-use bstr::{BStr, ByteSlice};
+use bstr::ByteSlice;
 
 use nom::branch::alt;
 use nom::sequence::preceded;
@@ -138,21 +138,15 @@ fn robots_txt_parse(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
 }
 
 #[allow(dead_code)]
-pub struct Robot<'a> {
-    txt: &'a [u8],
-    lines: Vec<Line<'a>>,
-    subset: Vec<Line<'a>>,
+pub struct Robot {
     rules: Vec<(isize, bool, Regex)>,
     pub delay: Option<u32>,
-    pub sitemaps: Vec<&'a BStr>,
+    pub sitemaps: Vec<String>,
 }
 
-impl fmt::Debug for Robot<'_> {
+impl fmt::Debug for Robot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Robot")
-            //.field("txt", &self.txt.as_bstr())
-            //.field("lines", &self.lines)
-            .field("subset", &self.subset)
             .field("rules", &self.rules)
             .field("delay", &self.delay)
             .field("sitemaps", &self.sitemaps)
@@ -160,7 +154,7 @@ impl fmt::Debug for Robot<'_> {
     }
 }
 
-impl<'a> Robot<'a> {
+impl<'a> Robot {
     pub fn new(agent: &str, txt: &'a [u8]) -> Result<Self, &'static str> {
         // Parse robots.txt
         let lines = match robots_txt_parse(txt.as_bytes()) {
@@ -175,7 +169,12 @@ impl<'a> Robot<'a> {
         // Collect all sitemaps
         // Why? "The sitemap field isn't tied to any specific user agent and may be followed by all crawlers"
         let sitemaps = lines.iter().filter_map(|x| match x {
-            Line::Sitemap(url) => Some((*url).as_bstr()),
+            Line::Sitemap(url) => {
+                match String::from_utf8(url.to_vec()) {
+                    Ok(url) => Some(url),
+                    Err(_) => None,
+                }
+            },
             _ => None,
         }).collect();
 
@@ -272,9 +271,6 @@ impl<'a> Robot<'a> {
         }
 
         Ok(Robot {
-            txt,
-            lines,
-            subset,
             rules,
             delay,
             sitemaps,
