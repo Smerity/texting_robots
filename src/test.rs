@@ -99,52 +99,6 @@ sitemap: https://example.com/sitemap.xml";
         assert_eq!(r.sitemaps, sitemaps);
     }
 
-    #[test]
-    fn test_robot_against_hn_robots() {
-        let txt = "User-Agent: *
-        Disallow: /x?
-        Disallow: /r?
-        Disallow: /vote?
-        Disallow: /reply?
-        Disallow: /submitted?
-        Disallow: /submitlink?
-        Disallow: /threads?
-        Crawl-delay: 30";
-        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(30));
-        assert!(r.allowed("https://news.ycombinator.com/item?id=30611367"));
-        assert!(!r.allowed("https://news.ycombinator.com/threads?id=Smerity"));
-        assert!(r.allowed("https://news.ycombinator.com/user?id=Smerity"));
-    }
-
-    #[test]
-    fn test_robot_against_twitter() {
-        let f = std::fs::File::open("testdata/twitter.robots.txt").unwrap();
-        let mut r = std::io::BufReader::new(f);
-        let mut txt = String::new();
-        std::io::Read::read_to_string(&mut r, &mut txt).unwrap();
-
-        let r = Robot::new("GOOGLEBOT", txt.as_bytes()).unwrap();
-        assert_eq!(r.delay, None);
-        assert!(!r.allowed("https://twitter.com/Smerity/following"));
-        assert!(r.allowed("https://twitter.com/halvarflake"));
-        assert!(!r.allowed("https://twitter.com/search?q=%22Satoshi%20Nakamoto%22&src=trend_click"));
-        // They allow hash tag search specifically for some reason..?
-        assert!(r.allowed("https://twitter.com/search?q=%23Satoshi&src=typed_query&f=top"));
-
-        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(1));
-        assert_eq!(r.sitemaps, vec!["https://twitter.com/sitemap.xml"]);
-        assert!(!r.allowed("https://twitter.com/Smerity/following"));
-        assert!(r.allowed("https://twitter.com/halvarflake"));
-        // Note: They disallow any URL with a query parameter
-        // Problematic as the default share URL includes query parameters
-        assert!(r.allowed("https://twitter.com/halvarflake/status/1501495664466927618"));
-        assert!(!r.allowed("https://twitter.com/halvarflake/status/1501495664466927618?s=20&t=7xv0WrBVxLVKo2OUCPn6OQ"));
-        assert!(r.allowed("https://twitter.com/search?q=%23Satoshi&src=typed_query&f=top"));
-        assert!(!r.allowed("/oauth"));
-    }
-
     /// URL Tests
     ////////////////////////////////////////////////////////////////////////////////
 
