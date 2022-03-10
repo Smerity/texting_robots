@@ -125,6 +125,11 @@ fn crawl_delay(input: &[u8]) -> IResult<&[u8], Line> {
 }
 
 fn robots_txt_parse(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
+    // Remove BOM ("\xef\xbb\xbf", "\uFEFF") if present
+    // TODO: Find a more elegant solution that shortcuts
+    let (input, _) = opt(tag(b"\xef"))(input)?;
+    let (input, _) = opt(tag(b"\xbb"))(input)?;
+    let (input, _) = opt(tag(b"\xbf"))(input)?;
     // TODO: Google limits to 500KB of data - should that be done here?
     let (input, (lines, _)) = many_till(
         alt((user_agent, allow, disallow, sitemap, crawl_delay, line)

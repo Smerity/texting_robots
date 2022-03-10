@@ -100,34 +100,6 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
-    fn test_conflicting_patterns() {
-        // From https://developers.google.com/search/docs/advanced/robots/robots_txt : "Order of precedence for rules"
-        let txt = "allow: /p
-        disallow: /";
-        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
-        assert!(r.allowed("/page"));
-        assert!(r.allowed("http://example.com/page"));
-
-        let txt = "allow: /folder
-        disallow: /folder";
-        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
-        assert!(r.allowed("/folder"));
-
-        let txt = "allow: /page
-        disallow: /*.htm";
-        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
-        assert!(!r.allowed("/page.htm"));
-        assert!(!r.allowed("http://lotr.com/page.htm"));
-
-        // Skipping the "page.php5" example as I don't understand / agree
-
-        let txt = "allow: /$
-        disallow: /";
-        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
-        assert!(!r.allowed("http://example.com/page.htm"));
-    }
-
-    #[test]
     fn test_robot_against_hn_robots() {
         let txt = "User-Agent: *
         Disallow: /x?
@@ -649,8 +621,178 @@ sitemap: https://example.com/sitemap.xml";
         assert!(!r.allowed("http://foo.bar/foo/quz"));
     }
 
+    #[test]
+    fn test_google_documentation_checks() {
+        for r in vec!["/fish", "/fish*"] {
+            let txt = format!("user-agent: FooBot
+            disallow: /
+            allow: {}", r);
+            let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+            assert!(!r.allowed("http://foo.bar/bar"));
+            assert!(r.allowed("http://foo.bar/fish"));
+            assert!(r.allowed("http://foo.bar/fish/salmon"));
+            assert!(r.allowed("http://foo.bar/fishheads"));
+            assert!(r.allowed("http://foo.bar/fishheads/yummy.html"));
+            assert!(r.allowed("http://foo.bar/fish.html?id=anything"));
+            assert!(!r.allowed("http://foo.bar/Fish.asp"));
+            assert!(!r.allowed("http://foo.bar/catfish"));
+            assert!(!r.allowed("http://foo.bar/?id=fish"));
+        }
+
+        let txt = "user-agent: FooBot
+        disallow: /
+        allow: /fish/";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://foo.bar/fish/"));
+        assert!(r.allowed("http://foo.bar/fish/salmon"));
+        assert!(r.allowed("http://foo.bar/fish/?salmon"));
+        assert!(r.allowed("http://foo.bar/fish/salmon.html"));
+        assert!(r.allowed("http://foo.bar/fish/?id=anything"));
+
+        assert!(!r.allowed("http://foo.bar/fish"));
+        assert!(!r.allowed("http://foo.bar/fish.html"));
+        assert!(!r.allowed("http://foo.bar/Fish/Salmon.html"));
+
+        let txt = "user-agent: FooBot
+        disallow: /
+        allow: /*.php";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/bar"));
+        assert!(r.allowed("http://foo.bar/filename.php"));
+        assert!(r.allowed("http://foo.bar/folder/filename.php"));
+        assert!(r.allowed("http://foo.bar//folder/any.php.file.html"));
+        assert!(r.allowed("http://foo.bar/filename.php/"));
+        assert!(r.allowed("http://foo.bar/index?f=filename.php/"));
+        assert!(!r.allowed("http://foo.bar/php/"));
+        assert!(!r.allowed("http://foo.bar/index?php"));
+        assert!(!r.allowed("http://foo.bar/windows.PHP"));
+
+        let txt = "user-agent: FooBot
+        disallow: /
+        allow: /*.php$";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/bar"));
+        assert!(r.allowed("http://foo.bar/filename.php"));
+        assert!(r.allowed("http://foo.bar/folder/filename.php"));
+        //
+        assert!(!r.allowed("http://foo.bar/filename.php?parameters"));
+        assert!(!r.allowed("http://foo.bar/filename.php/"));
+        assert!(!r.allowed("http://foo.bar/filename.php5"));
+        assert!(!r.allowed("http://foo.bar/php/"));
+        assert!(!r.allowed("http://foo.bar/filename?php"));
+        assert!(!r.allowed("http://foo.bar/aaaphpaaa"));
+        assert!(!r.allowed("http://foo.bar//windows.PHP"));
+
+        let txt = "user-agent: FooBot
+        disallow: /
+        allow: /fish*.php";
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("http://foo.bar/bar"));
+        assert!(r.allowed("http://foo.bar/fish.php"));
+        assert!(r.allowed("http://foo.bar/fishheads/catfish.php?parameters"));
+        assert!(!r.allowed("http://foo.bar/Fish.PHP"));
+    }
+
+    #[test]
+    fn test_google_order_of_precedence() {
+        // From https://developers.google.com/search/docs/advanced/robots/robots_txt : "Order of precedence for rules"
+        let txt = "allow: /p
+        disallow: /";
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("/page"));
+        assert!(r.allowed("http://example.com/page"));
+
+        let txt = "allow: /folder
+        disallow: /folder";
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("/folder"));
+        assert!(r.allowed("http://example.com/folder/page"));
+
+        let txt = "allow: /page
+        disallow: /*.htm";
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("/page.htm"));
+        assert!(!r.allowed("http://example.com/page.htm"));
+
+        // Skipping the "page.php5" example as I don't understand / agree
+
+        let txt = "allow: /$
+        disallow: /";
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("http://example.com/"));
+        assert!(!r.allowed("http://example.com/page.htm"));
+    }
+
+    #[test]
+    fn test_google_lines_correctly_counted() {
+        // Skipping "\r" only line ending - assuming "\r\n" or "\n"
+        for line_ending in &["\n", "\r\n"] {
+            let txt = "User-Agent: foo
+            Allow: /some/path
+            User-Agent: bar
+            
+            
+            Disallow: /";
+            let txt = txt.replace("\n", line_ending);
+            let (buffer, lines) = robots_txt_parse(txt.as_bytes()).unwrap();
+            assert!(buffer.is_empty());
+            assert_eq!(lines.len(), 6);
+            assert_eq!(lines.iter().filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_))).count(), 4);
+        }
+
+        // Add an extra newline at the very end
+        let txt = "User-Agent: foo
+        Allow: /some/path
+        User-Agent: bar
+
+
+        Disallow: /\n";
+        let (buffer, lines) = robots_txt_parse(txt.as_bytes()).unwrap();
+        assert!(buffer.is_empty());
+        assert_eq!(lines.len(), 6);
+        assert_eq!(lines.iter().filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_))).count(), 4);
+
+        // Mixed \n and \r\n
+        let txt = "User-Agent: foo\nAllow: /some/path\r\nUser-Agent: bar\n\r\n\nDisallow: /\n";
+        let (buffer, lines) = robots_txt_parse(txt.as_bytes()).unwrap();
+        assert!(buffer.is_empty());
+        assert_eq!(lines.len(), 6);
+        assert_eq!(lines.iter().filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_))).count(), 4);
+    }
+
+    #[test]
+    fn test_google_utf8_bom_is_skipped() {
+        for bom in vec![b"\xef\xbb\xbf".to_vec(), b"\xef\xbb".to_vec(), b"\xef".to_vec()] {
+            let txt = b"User-Agent: foo\nAllow: /AnyValue\n".to_vec();
+            let txt = [&bom[..], &txt[..]].concat();
+            let (buffer, lines) = robots_txt_parse(&txt).unwrap();
+            assert!(buffer.is_empty());
+            assert_eq!(lines.len(), 2);
+            assert_eq!(lines.iter().filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_))).count(), 2);
+        }
+
+        // Broken BOM: Expect one broken line (i.e. "\x11\xbfUser-Agent")
+        let txt = b"\xef\x11\xbfUser-Agent: foo\nAllow: /AnyValue\n";
+        let (buffer, lines) = robots_txt_parse(txt).unwrap();
+        assert!(buffer.is_empty());
+        assert_eq!(lines, vec![Raw(b"\x11\xbfUser-Agent: foo"), Allow(b"/AnyValue")]);
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines.iter().filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_))).count(), 1);
+
+        // BOM in middle of the file
+        let txt = b"User-Agent: foo\n\xef\xbb\xbfAllow: /AnyValue\n";
+        let (buffer, lines) = robots_txt_parse(txt).unwrap();
+        assert!(buffer.is_empty());
+        assert_eq!(lines, vec![UserAgent(b"foo"), Raw(b"\xef\xbb\xbfAllow: /AnyValue")]);
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines.iter().filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_))).count(), 1);
+    }
+
     // Ignored Google test:
     // - ID_VerifyValidUserAgentsToObey ensures agents are [A-Za-z_-]
     // - Skip "GoogleOnly_AcceptUserAgentUpToFirstSpace"
     //   -(i.e. "Googlebot-Images" being "Googlebot Images" and screwing "Googlebot")
+    // - Skip "GoogleOnly_IndexHTMLisDirectory" (i.e. allow "/index.html" if "/" is allowed)
+    // - Skip "GoogleOnly_LineTooLong" (though something equivalent makes sense)
+    // - TODO: Test the path + params conversion
 }
