@@ -281,26 +281,32 @@ impl<'a> Robot<'a> {
         })
     }
 
-    fn allowed(&self, raw_url: &str) -> bool {
+    fn prepare_url(raw_url: &str) -> String {
         // Try to get only the path + query of the URL
+        if raw_url.is_empty() {
+            return "/".to_string()
+        }
         // Note: If this fails we assume the passed URL is valid
-        let mut pct_encoded: Option<String> = None;
         let parsed = Url::parse(raw_url);
         let url = match parsed.as_ref() {
             // The Url library performs percent encoding
-            Ok(url) => &url[Position::BeforePath..],
+            Ok(url) => url[Position::BeforePath..].to_string(),
             Err(_) => {
-                pct_encoded = Some(percent_encode(raw_url));
-                &(pct_encoded.as_ref()).unwrap()
+                percent_encode(raw_url)
             },
         };
+        url
+    }
+
+    fn allowed(&self, raw_url: &str) -> bool {
+        let url = Self::prepare_url(raw_url);
         if url == "/robots.txt" {
             return true;
         }
 
         //println!("{:?} {:?}", url, self.rules);
         let mut matches: Vec<&(isize, bool, Regex)> = self.rules.iter().filter(|(_, _, rule)| {
-            rule.is_match(url)
+            rule.is_match(&url)
         }).collect();
 
         // Sort according to the longest match

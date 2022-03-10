@@ -145,6 +145,22 @@ sitemap: https://example.com/sitemap.xml";
         assert!(!r.allowed("/oauth"));
     }
 
+    /// URL Tests
+    ////////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn test_url_prepare_relative() {
+        for (url, path) in vec![
+            ("https://example.com/foo/bar/baz.html", "/foo/bar/baz.html"),
+            ("https://example.com/", "/"),
+            ("https://example.com/path", "/path"),
+            ("https://example.com/path?q=Linux", "/path?q=Linux"),
+        ] {
+            assert_eq!(Robot::prepare_url(url), path);
+            assert_eq!(Robot::prepare_url(path), path);
+        }
+    }
+
     /// REPPY TESTS
     ////////////////////////////////////////////////////////////////////////////////
 
@@ -786,6 +802,40 @@ sitemap: https://example.com/sitemap.xml";
         assert_eq!(lines, vec![UserAgent(b"foo"), Raw(b"\xef\xbb\xbfAllow: /AnyValue")]);
         assert_eq!(lines.len(), 2);
         assert_eq!(lines.iter().filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_))).count(), 1);
+    }
+
+    #[test]
+    fn test_google_url_prepare_get_path_params_query() {
+        // Note: We skip part of the test as we assume the user passed in a URL with valid http/s, not "example.com"
+        for (url, path) in vec![
+            ("", "/"),
+            ("https://example.com", "/"),
+            ("https://example.com/", "/"),
+            ("http://www.example.com/a", "/a"),
+            ("http://www.example.com/a/", "/a/"),
+            ("http://www.example.com/a/b?c=http://d.e/", "/a/b?c=http://d.e/"),
+            ("http://www.example.com/a/b?c=d&e=f#fragment", "/a/b?c=d&e=f#fragment"),
+        ] {
+            assert_eq!(Robot::prepare_url(url), path);
+            assert_eq!(Robot::prepare_url(path), path);
+        }
+    }
+
+    #[test]
+    fn test_google_url_prepare_escape_pattern() {
+        // For the complexity of whether to normalize percent encoding (i.e. "%AA" = "%aa") see:
+        // https://github.com/servo/rust-url/issues/149
+        // "the algorithm specified at https://url.spec.whatwg.org/#path-state ..."
+        // "leaves existing percent-encoded sequences unchanged"
+        for (start, end) in vec![
+            ("http://www.example.com", "/"),
+            ("/a/b/c", "/a/b/c"),
+            ("/á", "/%C3%A1"),
+            // According the above, percent encoded remain encoded the same as before
+            ("/%aa", "/%aa"),
+        ] {
+            assert_eq!(Robot::prepare_url(start), end);
+        }
     }
 
     // Ignored Google test:
