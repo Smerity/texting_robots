@@ -99,6 +99,14 @@ sitemap: https://example.com/sitemap.xml";
         assert_eq!(r.sitemaps, sitemaps);
     }
 
+    #[test]
+    fn test_robot_excessive_crawl_delay() {
+        let txt = "User-Agent: Y
+        Crawl-Delay: 115792089237316195423570985008687907853269984665640564039457584007913129639936";
+        let r = Robot::new("Y", txt.as_bytes()).unwrap();
+        assert!(r.delay.is_none());
+    }
+
     /// From fuzzer
     //
 
