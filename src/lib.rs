@@ -155,11 +155,14 @@ impl fmt::Debug for Robot {
 }
 
 impl<'a> Robot {
-    pub fn new(agent: &str, txt: &'a [u8]) -> Result<Self, &'static str> {
+    pub fn new(agent: &str, txt: &'a [u8]) -> Result<Self, anyhow::Error> {
         // Parse robots.txt
         let lines = match robots_txt_parse(txt.as_bytes()) {
             Ok((_, lines)) => lines,
-            Err(_) => return Err("Failed to parse robots.txt"),
+            Err(_) => return Err(anyhow::Error::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Failed to parse robots.txt"
+            ))),
         };
         //for (idx, line) in lines.iter().enumerate() { println!("{:02}: {:?}", idx, line); }
 
@@ -266,7 +269,11 @@ impl<'a> Robot {
             let rule = regex::RegexBuilder::new(&pat)
                 // Apply computation / memory limits against adversarial actors
                 .dfa_size_limit(10 * (2 << 10)).size_limit(10 * (1 << 10))
-                .build().unwrap();
+                .build();
+            let rule = match rule {
+                Ok(rule) => rule,
+                Err(e) => return Err(anyhow::Error::new(e)),
+            };
             rules.push((original.len() as isize, is_allowed, rule));
         }
 

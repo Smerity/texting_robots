@@ -99,6 +99,18 @@ sitemap: https://example.com/sitemap.xml";
         assert_eq!(r.sitemaps, sitemaps);
     }
 
+    /// From fuzzer
+    //
+
+    #[test]
+    fn test_fuzzed_long_regex_rule() {
+        let statements: Vec<&str> =  vec!["Allow:", "Disallow:", "Sitemap:", "Crawl-Delay:", "User-Agent:"];
+        for statement in statements {
+            let crash: Vec<u8> = [statement.as_bytes(), &vec!['A' as u8; 4096]].concat();
+            let _r = Robot::new("BobBot", &crash);
+        }
+    }
+
     /// URL Tests
     ////////////////////////////////////////////////////////////////////////////////
 
