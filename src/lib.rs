@@ -1,3 +1,94 @@
+/*!
+Crate `texting_robots` is a library for parsing `robots.txt` files.
+A key design goal of this crate is to have a thorough test suite tested
+against real world data across millions of sites. While `robots.txt` is a
+simple specification itself the web teases out every possible edge case.
+
+To read more about the `robots.txt` specification a good starting point is
+[How Google interprets the robots.txt specification][1].
+
+[1]: (https://developers.google.com/search/docs/advanced/robots/robots_txt)
+
+# Installation
+
+Simply add a corresponding entry to your `Cargo.toml` dependency list:
+
+```plain
+[dependencies]
+texting_robots = "0.1"
+```
+
+The examples in this documentation will show the rest.
+
+# Overview of usage
+
+This crate provides a simple high level usage through the `Robot` struct.
+
+The `set` and `map` sub-modules contain types specific to sets and maps, such
+as range queries and streams.
+
+The `raw` module permits direct interaction with finite state transducers.
+Namely, the states and transitions of a transducer can be directly accessed
+with the `raw` module.
+
+```rust
+use texting_robots::Robot;
+
+// A `robots.txt` file in String or byte format.
+let txt = r"User-Agent: FerrisCrawler
+Allow: /ocean
+Disallow: /rust
+Disallow: /forest*.py
+Crawl-Delay: 10
+User-Agent: *
+Disallow: /
+Sitemap: https://www.example.com/site.xml";
+
+// Build the Robot for our friendly User-Agent
+let r = Robot::new("FerrisCrawler", txt.as_bytes()).unwrap();
+
+// Ferris has a crawl delay of one second per limb
+// (Crabs have 10 legs so Ferris must wait 10 seconds!)
+assert_eq!(r.delay, Some(10));
+
+// We can also check which pages Ferris is allowed to crawl
+// Notice we can supply the full URL or a relative path?
+assert_eq!(r.allowed("https://www.rust-lang.org/ocean"), true);
+assert_eq!(r.allowed("/ocean"), true);
+assert_eq!(r.allowed("/ocean/reef.html"), true);
+// Sadly Ferris is allowed in the ocean but not in the rust
+assert_eq!(r.allowed("/rust"), false);
+// Ferris is also friendly but not very good with pythons
+assert_eq!(r.allowed("/forest/tree/snake.py"), false);
+
+// The sitemap is available for any user agent
+assert_eq!(r.sitemaps, vec!["https://www.example.com/site.xml"]);
+```
+
+# Additional considerations
+
+`texting_robots` provides much of what you need for safe and respectful
+crawling but is not a full solution by itself.
+
+As an example, the HTTP error code 429 ([Too Many Requests][2]) must be
+tracked when requesting pages on a given site. When a 429 is seen the crawler
+should slow down, potentially setting the length of delay to the
+[Retry-After][3] header if supplied by the server.
+
+An even more complex example is that multiple domains may back on to the same
+backend web server. This is a common scenario for specific products or services
+as they may host thousands or millions of domains. How you consider to deploy
+`Crawl-Delay` is entirely up to the end user (and potentially the service when
+using HTTP error code 429 to rate limit traffic).
+
+This library cannot guard you against all possible edge cases but it should
+give you a strong starting point from which to ensure you and your code
+constitute a positive addition to the internet at large.
+
+[2]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+[3]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
+*/
+
 use core::fmt;
 
 use bstr::ByteSlice;
@@ -14,7 +105,7 @@ use nom::lib::std::result::Result::Err;
 
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 
 use url::{Url, Position};
 
@@ -155,8 +246,14 @@ impl fmt::Debug for Robot {
 }
 
 impl<'a> Robot {
+    /// Construct a new Robot object specifically processed for the given user agent.
+    /// The user agent extracts all relevant rules from `robots.txt` and stores them
+    /// internally. If the user agent isn't found in `robots.txt` we default to `*`.
+    ///
+    /// Note: The agent string is lowercased before comparison, as required by the
+    /// `robots.txt` specification.
     pub fn new(agent: &str, txt: &'a [u8]) -> Result<Self, anyhow::Error> {
-        // Parse robots.txt
+        // Parse robots.txt using the nom library
         let lines = match robots_txt_parse(txt.as_bytes()) {
             Ok((_, lines)) => lines,
             Err(_) => return Err(anyhow::Error::new(std::io::Error::new(
@@ -164,9 +261,9 @@ impl<'a> Robot {
                 "Failed to parse robots.txt"
             ))),
         };
-        //for (idx, line) in lines.iter().enumerate() { println!("{:02}: {:?}", idx, line); }
 
-        let agent = agent.to_ascii_lowercase();
+        // All agents are case insensitive in `robots.txt`
+        let agent = agent.to_lowercase();
         let mut agent = agent.as_str();
 
         // Collect all sitemaps
@@ -266,7 +363,7 @@ impl<'a> Robot {
             let pat = regex::escape(&pat)
                 .replace("\\*", ".*").replace("\\$", "$");
 
-            let rule = regex::RegexBuilder::new(&pat)
+            let rule = RegexBuilder::new(&pat)
                 // Apply computation / memory limits against adversarial actors
                 .dfa_size_limit(10 * (2 << 10)).size_limit(10 * (1 << 10))
                 .build();
@@ -284,7 +381,7 @@ impl<'a> Robot {
         })
     }
 
-    pub fn prepare_url(raw_url: &str) -> String {
+    fn prepare_url(raw_url: &str) -> String {
         // Try to get only the path + query of the URL
         if raw_url.is_empty() {
             return "/".to_string()
@@ -301,8 +398,23 @@ impl<'a> Robot {
         url
     }
 
-    pub fn allowed(&self, raw_url: &str) -> bool {
-        let url = Self::prepare_url(raw_url);
+    /// Check if the given URL is allowed for the agent by `robots.txt`.
+    /// This function returns true or false according to the rules in `robots.txt`.
+    ///
+    /// The provided URL can be absolute or relative depending on user preference.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use texting_robots::Robot;
+    ///
+    /// let r = Robot::new("Ferris", b"Disallow: /secret").unwrap();
+    /// assert_eq!(r.allowed("https://example.com/secret"), false);
+    /// assert_eq!(r.allowed("/secret"), false);
+    /// assert_eq!(r.allowed("/everything-else"), true);
+    /// ```
+    pub fn allowed(&self, url: &str) -> bool {
+        let url = Self::prepare_url(url);
         if url == "/robots.txt" {
             return true;
         }
