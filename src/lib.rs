@@ -7,7 +7,7 @@ simple specification itself the web teases out every possible edge case.
 To read more about the `robots.txt` specification a good starting point is
 [How Google interprets the robots.txt specification][1].
 
-[1]: (https://developers.google.com/search/docs/advanced/robots/robots_txt)
+[1]: https://developers.google.com/search/docs/advanced/robots/robots_txt
 
 # Installation
 

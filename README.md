@@ -1,6 +1,6 @@
-[![Workflow Status](https://github.com/Smerity/texting_robots/workflows/ci/badge.svg)](https://github.com/Smerity/texting_robots/actions?query=ci)
-
 # Texting Robots
+
+[![Workflow Status](https://github.com/Smerity/texting_robots/workflows/ci/badge.svg)](https://github.com/Smerity/texting_robots/actions?query=ci)
 
 Crate `texting_robots` is a library for parsing `robots.txt` files.
 A key design goal of this crate is to have a thorough test suite tested
@@ -10,7 +10,7 @@ simple specification itself the web teases out every possible edge case.
 To read more about the `robots.txt` specification a good starting point is
 [How Google interprets the robots.txt specification][1].
 
-[1]: (https://developers.google.com/search/docs/advanced/robots/robots_txt)
+[1]: https://developers.google.com/search/docs/advanced/robots/robots_txt
 
 ## Installation
 
