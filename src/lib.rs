@@ -11,25 +11,23 @@ To read more about the `robots.txt` specification a good starting point is
 
 # Installation
 
-Simply add a corresponding entry to your `Cargo.toml` dependency list:
+Soon you'll be able to install the library by adding this entry:
 
 ```plain
 [dependencies]
 texting_robots = "0.1"
 ```
 
-The examples in this documentation will show the rest.
+to your `Cargo.toml` dependency list.
 
 # Overview of usage
 
 This crate provides a simple high level usage through the `Robot` struct.
 
-The `set` and `map` sub-modules contain types specific to sets and maps, such
-as range queries and streams.
-
-The `raw` module permits direct interaction with finite state transducers.
-Namely, the states and transitions of a transducer can be directly accessed
-with the `raw` module.
+The `Robot` struct is responsible for consuming the `robots.txt` file,
+processing the contents, and deciding whether a given URL is allow for
+your bot or not. Additional information such as your bot's crawl delay
+and any sitemaps that may exist are also available.
 
 ```rust
 use texting_robots::Robot;
@@ -72,16 +70,16 @@ crawling but is not a full solution by itself.
 
 As an example, the HTTP error code 429 ([Too Many Requests][2]) must be
 tracked when requesting pages on a given site. When a 429 is seen the crawler
-should slow down, potentially setting the length of delay to the
-[Retry-After][3] header if supplied by the server.
+should slow down, even if obeying the Crawl-Delay set in `robots.txt`, and
+potentially using the delay set by the server's [Retry-After][3] header.
 
 An even more complex example is that multiple domains may back on to the same
 backend web server. This is a common scenario for specific products or services
-as they may host thousands or millions of domains. How you consider to deploy
+that host thousands or millions of domains. How you rate limit fairly using the
 `Crawl-Delay` is entirely up to the end user (and potentially the service when
 using HTTP error code 429 to rate limit traffic).
 
-This library cannot guard you against all possible edge cases but it should
+This library cannot guard you against all possible edge cases but should
 give you a strong starting point from which to ensure you and your code
 constitute a positive addition to the internet at large.
 
