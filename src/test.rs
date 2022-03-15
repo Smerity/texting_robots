@@ -84,6 +84,42 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
+    fn test_robot_crawl_delay_not_integer() {
+        let txt = b"User-Agent: A
+        Crawl-Delay: y
+        User-Agent: B
+        Crawl-Delay: 4.2
+        User-Agent: C
+        Crawl-Delay: \x41\xc2\xc3\xb1\x42";
+
+        let r = Robot::new("A", txt).unwrap();
+        assert_eq!(r.delay, None);
+        // We assume the (not well specified) Crawl-Delay only allows integers
+        // Converting floats is both complicated and not at all well defined
+        let r = Robot::new("B", txt).unwrap();
+        assert_eq!(r.delay, None);
+        let r = Robot::new("C", txt).unwrap();
+        assert_eq!(r.delay, None);
+    }
+
+    #[test]
+    fn test_robot_crawl_evil_utf8() {
+        // Example of ill-formed UTF-8 code unit sequence from:
+        // http://www.unicode.org/versions/Unicode6.2.0/ch03.pdf
+        let txt = b"User-Agent: A
+        Allow: \x41\xc2\xc3\xb1\x42
+        Disallow: \x41\xc2\xc3\xb1\x42
+        SiteMap: \x41\xc2\xc3\xb1\x42
+        Crawl-Delay: \x41\xc2\xc3\xb1\x42
+        Disallow: /bob/";
+
+        let r = Robot::new("A", txt).unwrap();
+        assert!(!r.allowed("/bob/"));
+        assert_eq!(r.delay, None);
+        assert!(r.sitemaps.is_empty());
+    }
+
+    #[test]
     fn test_robot_retrieve_sitemaps() {
         let txt = "user-agent: otherbot
         disallow: /kale

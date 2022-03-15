@@ -208,7 +208,15 @@ fn sitemap(input: &[u8]) -> IResult<&[u8], Line> {
 fn crawl_delay(input: &[u8]) -> IResult<&[u8], Line> {
     let (input, time) = statement_builder(input, "crawl-delay")?;
 
-    let time = std::str::from_utf8(time).unwrap_or("1");
+    let time = match std::str::from_utf8(time) {
+        Ok(time) => time,
+        Err(_) => {
+            return Err(nom::Err::Error(nom::error::Error {
+                input,
+                code: nom::error::ErrorKind::Fail,
+            }))
+        }
+    };
     let delay = match time.parse::<u32>() {
         Ok(d) => Some(d),
         Err(_) => {
@@ -238,7 +246,13 @@ fn robots_txt_parse(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
 #[allow(dead_code)]
 pub struct Robot {
     rules: Vec<(isize, bool, Regex)>,
+    /// The delay in seconds between requests.
+    /// If set in `robots.txt` it will be `Some(u32)`.
+    /// Otherwise it will be `None`.
     pub delay: Option<u32>,
+    /// Any sitemaps found in the `robots.txt` file are added to this vector.
+    /// According to the `robots.txt` specification a sitemap found in `robots.txt`
+    /// is accessible and available to any bot which crawls it.
     pub sitemaps: Vec<String>,
 }
 
