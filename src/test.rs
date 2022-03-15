@@ -1,4 +1,4 @@
-use super::{Robot, robots_txt_parse};
+use super::{robots_txt_parse, Robot};
 
 use super::Line;
 use super::Line::*;
@@ -19,8 +19,12 @@ sitemap: https://example.com/sitemap.xml";
         let lines = robots_txt_parse(txt.as_bytes()).unwrap().1;
 
         let result: Vec<Line> = vec![
-            UserAgent(b"SmerBot"), Disallow(b"/path"), Allow(b"/path/exception"),
-            CrawlDelay(Some(60)), Raw(b""), Sitemap(b"https://example.com/sitemap.xml")
+            UserAgent(b"SmerBot"),
+            Disallow(b"/path"),
+            Allow(b"/path/exception"),
+            CrawlDelay(Some(60)),
+            Raw(b""),
+            Sitemap(b"https://example.com/sitemap.xml"),
         ];
 
         assert_eq!(lines, result);
@@ -34,16 +38,16 @@ sitemap: https://example.com/sitemap.xml";
             Ok((_, lines)) => {
                 assert_eq!(lines.len(), 1);
                 assert_eq!(lines[0], CrawlDelay(Some(60)));
-            },
-            Err(_) => panic!("Crawl-Delay not correctly retrieved")
+            }
+            Err(_) => panic!("Crawl-Delay not correctly retrieved"),
         };
         // Test invalid result
         let bad_text = "Crawl-delay: wait";
         let r = robots_txt_parse(bad_text.as_bytes());
         if let Ok((_, lines)) = &r {
             assert_eq!(lines.len(), 1);
-            if let Raw(_) = lines[0] {}
-            else {
+            if let Raw(_) = lines[0] {
+            } else {
                 panic!("Invalid Crawl-Delay not correctly handled")
             }
         }
@@ -90,7 +94,7 @@ sitemap: https://example.com/sitemap.xml";
         let sitemaps = vec![
             "https://example.com/sitemap.xml",
             "https://cdn.example.org/other-sitemap.xml",
-            "https://ja.example.org/テスト-サイトマップ.xml"
+            "https://ja.example.org/テスト-サイトマップ.xml",
         ];
 
         let r = Robot::new("otherbot", txt.as_bytes()).unwrap();
@@ -112,9 +116,16 @@ sitemap: https://example.com/sitemap.xml";
 
     #[test]
     fn test_fuzzed_long_regex_rule() {
-        let statements: Vec<&str> =  vec!["Allow:", "Disallow:", "Sitemap:", "Crawl-Delay:", "User-Agent:"];
+        let statements: Vec<&str> = vec![
+            "Allow:",
+            "Disallow:",
+            "Sitemap:",
+            "Crawl-Delay:",
+            "User-Agent:",
+        ];
         for statement in statements {
-            let crash: Vec<u8> = [statement.as_bytes(), &vec!['A' as u8; 4096]].concat();
+            let crash: Vec<u8> =
+                [statement.as_bytes(), &vec!['A' as u8; 4096]].concat();
             let _r = Robot::new("BobBot", &crash);
         }
     }
@@ -223,7 +234,10 @@ sitemap: https://example.com/sitemap.xml";
         let txt = "            Sitemap: http://a.com/sitemap.xml
         Sitemap: http://b.com/sitemap.xml";
         let r = Robot::new("agent", txt.as_bytes()).unwrap();
-        assert_eq!(r.sitemaps, vec!["http://a.com/sitemap.xml", "http://b.com/sitemap.xml"]);
+        assert_eq!(
+            r.sitemaps,
+            vec!["http://a.com/sitemap.xml", "http://b.com/sitemap.xml"]
+        );
     }
 
     #[test]
@@ -305,9 +319,18 @@ sitemap: https://example.com/sitemap.xml";
         Allow: /~mak
         Disallow: /";
 
-        let targets = vec!["/", "/index.html", "/server.html", "/services/fast.html",
-                           "/services/slow.html", "/orgo.gif", "/org/about.html", "/org/plans.html",
-                           "/%7Ejim/jim.html", "/~mak/mak.html"];
+        let targets = vec![
+            "/",
+            "/index.html",
+            "/server.html",
+            "/services/fast.html",
+            "/services/slow.html",
+            "/orgo.gif",
+            "/org/about.html",
+            "/org/plans.html",
+            "/%7Ejim/jim.html",
+            "/~mak/mak.html",
+        ];
 
         let r = Robot::new("unhipbot", txt.as_bytes()).unwrap();
         assert!(r.allowed("/robots.txt"));
@@ -555,7 +578,9 @@ sitemap: https://example.com/sitemap.xml";
         Disallow: /
         Allow: /foo/bar?qux=taz&baz=http://foo.bar?tar&par";
         let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
-        assert!(r.allowed("http://foo.bar/foo/bar?qux=taz&baz=http://foo.bar?tar&par"));
+        assert!(r.allowed(
+            "http://foo.bar/foo/bar?qux=taz&baz=http://foo.bar?tar&par"
+        ));
 
         let txt = "User-agent: FooBot
         Disallow: /
@@ -614,9 +639,12 @@ sitemap: https://example.com/sitemap.xml";
     #[test]
     fn test_google_documentation_checks() {
         for r in vec!["/fish", "/fish*"] {
-            let txt = format!("user-agent: FooBot
+            let txt = format!(
+                "user-agent: FooBot
             disallow: /
-            allow: {}", r);
+            allow: {}",
+                r
+            );
             let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
             assert!(!r.allowed("http://foo.bar/bar"));
             assert!(r.allowed("http://foo.bar/fish"));
@@ -727,7 +755,16 @@ sitemap: https://example.com/sitemap.xml";
             let (buffer, lines) = robots_txt_parse(txt.as_bytes()).unwrap();
             assert!(buffer.is_empty());
             assert_eq!(lines.len(), 6);
-            assert_eq!(lines.iter().filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_))).count(), 4);
+            assert_eq!(
+                lines
+                    .iter()
+                    .filter(|x| matches!(
+                        x,
+                        UserAgent(_) | Allow(_) | Disallow(_)
+                    ))
+                    .count(),
+                4
+            );
         }
 
         // Add an extra newline at the very end
@@ -740,42 +777,85 @@ sitemap: https://example.com/sitemap.xml";
         let (buffer, lines) = robots_txt_parse(txt.as_bytes()).unwrap();
         assert!(buffer.is_empty());
         assert_eq!(lines.len(), 6);
-        assert_eq!(lines.iter().filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_))).count(), 4);
+        assert_eq!(
+            lines
+                .iter()
+                .filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_)))
+                .count(),
+            4
+        );
 
         // Mixed \n and \r\n
         let txt = "User-Agent: foo\nAllow: /some/path\r\nUser-Agent: bar\n\r\n\nDisallow: /\n";
         let (buffer, lines) = robots_txt_parse(txt.as_bytes()).unwrap();
         assert!(buffer.is_empty());
         assert_eq!(lines.len(), 6);
-        assert_eq!(lines.iter().filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_))).count(), 4);
+        assert_eq!(
+            lines
+                .iter()
+                .filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_)))
+                .count(),
+            4
+        );
     }
 
     #[test]
     fn test_google_utf8_bom_is_skipped() {
-        for bom in vec![b"\xef\xbb\xbf".to_vec(), b"\xef\xbb".to_vec(), b"\xef".to_vec()] {
+        for bom in vec![
+            b"\xef\xbb\xbf".to_vec(),
+            b"\xef\xbb".to_vec(),
+            b"\xef".to_vec(),
+        ] {
             let txt = b"User-Agent: foo\nAllow: /AnyValue\n".to_vec();
             let txt = [&bom[..], &txt[..]].concat();
             let (buffer, lines) = robots_txt_parse(&txt).unwrap();
             assert!(buffer.is_empty());
             assert_eq!(lines.len(), 2);
-            assert_eq!(lines.iter().filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_))).count(), 2);
+            assert_eq!(
+                lines
+                    .iter()
+                    .filter(|x| matches!(
+                        x,
+                        UserAgent(_) | Allow(_) | Disallow(_)
+                    ))
+                    .count(),
+                2
+            );
         }
 
         // Broken BOM: Expect one broken line (i.e. "\x11\xbfUser-Agent")
         let txt = b"\xef\x11\xbfUser-Agent: foo\nAllow: /AnyValue\n";
         let (buffer, lines) = robots_txt_parse(txt).unwrap();
         assert!(buffer.is_empty());
-        assert_eq!(lines, vec![Raw(b"\x11\xbfUser-Agent: foo"), Allow(b"/AnyValue")]);
+        assert_eq!(
+            lines,
+            vec![Raw(b"\x11\xbfUser-Agent: foo"), Allow(b"/AnyValue")]
+        );
         assert_eq!(lines.len(), 2);
-        assert_eq!(lines.iter().filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_))).count(), 1);
+        assert_eq!(
+            lines
+                .iter()
+                .filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_)))
+                .count(),
+            1
+        );
 
         // BOM in middle of the file
         let txt = b"User-Agent: foo\n\xef\xbb\xbfAllow: /AnyValue\n";
         let (buffer, lines) = robots_txt_parse(txt).unwrap();
         assert!(buffer.is_empty());
-        assert_eq!(lines, vec![UserAgent(b"foo"), Raw(b"\xef\xbb\xbfAllow: /AnyValue")]);
+        assert_eq!(
+            lines,
+            vec![UserAgent(b"foo"), Raw(b"\xef\xbb\xbfAllow: /AnyValue")]
+        );
         assert_eq!(lines.len(), 2);
-        assert_eq!(lines.iter().filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_))).count(), 1);
+        assert_eq!(
+            lines
+                .iter()
+                .filter(|x| matches!(x, UserAgent(_) | Allow(_) | Disallow(_)))
+                .count(),
+            1
+        );
     }
 
     #[test]
@@ -788,7 +868,10 @@ sitemap: https://example.com/sitemap.xml";
             ("http://www.example.com/a", "/a"),
             ("http://www.example.com/a/", "/a/"),
             ("http://www.example.com/a/b?c=http://d.e/", "/a/b?c=http://d.e/"),
-            ("http://www.example.com/a/b?c=d&e=f#fragment", "/a/b?c=d&e=f#fragment"),
+            (
+                "http://www.example.com/a/b?c=d&e=f#fragment",
+                "/a/b?c=d&e=f#fragment",
+            ),
         ] {
             assert_eq!(Robot::prepare_url(url), path);
             assert_eq!(Robot::prepare_url(path), path);

@@ -1,4 +1,4 @@
-use texting_robots::{Robot};
+use texting_robots::Robot;
 
 fn main() {
     let f = std::fs::File::open("testdata/twitter.robots.txt").unwrap();
@@ -17,10 +17,19 @@ fn main() {
         assert!(r.allowed("https://twitter.com/halvarflake"));
         // Note: They disallow any URL with a query parameter
         // Problematic as the default share URL includes query parameters
-        assert!(r.allowed("https://twitter.com/halvarflake/status/1501495664466927618"));
+        assert!(r.allowed(
+            "https://twitter.com/halvarflake/status/1501495664466927618"
+        ));
         assert!(!r.allowed("https://twitter.com/halvarflake/status/1501495664466927618?s=20&t=7xv0WrBVxLVKo2OUCPn6OQ"));
-        assert!(r.allowed("https://twitter.com/search?q=%23Satoshi&src=typed_query&f=top"));
+        assert!(r.allowed(
+            "https://twitter.com/search?q=%23Satoshi&src=typed_query&f=top"
+        ));
         assert!(!r.allowed("/oauth"));
     }
-    println!("Elapsed time: {:.2?} / {} = {:.2?} per loop", before.elapsed(), ITERATIONS, before.elapsed() / ITERATIONS);
+    println!(
+        "Elapsed time: {:.2?} / {} = {:.2?} per loop",
+        before.elapsed(),
+        ITERATIONS,
+        before.elapsed() / ITERATIONS
+    );
 }

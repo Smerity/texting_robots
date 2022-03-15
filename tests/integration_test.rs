@@ -1,4 +1,4 @@
-use texting_robots::{Robot};
+use texting_robots::Robot;
 
 #[cfg(test)]
 mod tests {
@@ -45,11 +45,15 @@ mod tests {
         // RSS is allowed
         assert!(r.allowed(&format!("https://www.reddit.com/r/rust/.rss")));
         // Sitemaps are allowed
-        assert!(r.allowed(&format!("https://www.reddit.com/sitemaps/2014.xml")));
+        assert!(
+            r.allowed(&format!("https://www.reddit.com/sitemaps/2014.xml"))
+        );
         // JSON, XML, and "?feed=" are forbidden
         assert!(!r.allowed(&format!("https://www.reddit.com/r/rust/.json")));
         assert!(!r.allowed(&format!("https://www.reddit.com/r/rust/.xml")));
-        assert!(!r.allowed(&format!("https://www.reddit.com/r/rust/?feed=simd")));
+        assert!(
+            !r.allowed(&format!("https://www.reddit.com/r/rust/?feed=simd"))
+        );
     }
 
     #[test]
@@ -62,7 +66,9 @@ mod tests {
         assert!(r.allowed("https://twitter.com/halvarflake"));
         assert!(!r.allowed("https://twitter.com/search?q=%22Satoshi%20Nakamoto%22&src=trend_click"));
         // They allow hash tag search specifically for some reason..?
-        assert!(r.allowed("https://twitter.com/search?q=%23Satoshi&src=typed_query&f=top"));
+        assert!(r.allowed(
+            "https://twitter.com/search?q=%23Satoshi&src=typed_query&f=top"
+        ));
 
         let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
         assert_eq!(r.delay, Some(1));
@@ -71,9 +77,13 @@ mod tests {
         assert!(r.allowed("https://twitter.com/halvarflake"));
         // Note: They disallow any URL with a query parameter
         // Problematic as the default share URL includes query parameters
-        assert!(r.allowed("https://twitter.com/halvarflake/status/1501495664466927618"));
+        assert!(r.allowed(
+            "https://twitter.com/halvarflake/status/1501495664466927618"
+        ));
         assert!(!r.allowed("https://twitter.com/halvarflake/status/1501495664466927618?s=20&t=7xv0WrBVxLVKo2OUCPn6OQ"));
-        assert!(r.allowed("https://twitter.com/search?q=%23Satoshi&src=typed_query&f=top"));
+        assert!(r.allowed(
+            "https://twitter.com/search?q=%23Satoshi&src=typed_query&f=top"
+        ));
         assert!(!r.allowed("/oauth"));
     }
 
@@ -105,7 +115,9 @@ mod tests {
         assert!(r.allowed("https://www.ebay.com/p/578453454"));
         // Note: eBay's robots.txt has weird rules with trailing commas (e.g.) "/itm/*," and "/b/*,")
         // These do not block /itm/ and /b/ however
-        assert!(r.allowed("https://www.ebay.com/b/HP-Z840-PC-Desktops-All-In-One-Computers/179/bn_89095575"));
+        assert!(r.allowed(
+            "https://www.ebay.com/b/HP-Z840-PC-Desktops-All-In-One-Computers/179/bn_89095575"
+        ));
         assert!(r.allowed("https://www.ebay.com/itm/124743368051"));
         assert!(!r.allowed("https://www.ebay.com/itm/124743368051,42"));
         //
