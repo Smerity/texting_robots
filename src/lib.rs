@@ -49,6 +49,9 @@ let r = Robot::new("FerrisCrawler", txt.as_bytes()).unwrap();
 // (Crabs have 10 legs so Ferris must wait 10 seconds!)
 assert_eq!(r.delay, Some(10));
 
+// Any listed sitemaps are available for any user agent who finds them
+assert_eq!(r.sitemaps, vec!["https://www.example.com/site.xml"]);
+
 // We can also check which pages Ferris is allowed to crawl
 // Notice we can supply the full URL or a relative path?
 assert_eq!(r.allowed("https://www.rust-lang.org/ocean"), true);
@@ -58,9 +61,6 @@ assert_eq!(r.allowed("/ocean/reef.html"), true);
 assert_eq!(r.allowed("/rust"), false);
 // Ferris is also friendly but not very good with pythons
 assert_eq!(r.allowed("/forest/tree/snake.py"), false);
-
-// The sitemap is available for any user agent
-assert_eq!(r.sitemaps, vec!["https://www.example.com/site.xml"]);
 ```
 
 # Additional considerations
