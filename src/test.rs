@@ -147,6 +147,24 @@ sitemap: https://example.com/sitemap.xml";
         assert!(r.delay.is_none());
     }
 
+    #[test]
+    fn test_robot_starts_with_crawl_delay() {
+        // Some domains, such as https://www.ipwatchdog.com/robots.txt, start with a
+        // Crawl-Delay directive that applies to all User-Agents.
+        // We assume if your Agent doesn't have a specific Crawl-Delay then this applies.
+        let txt = "Crawl-Delay: 42
+        User-Agent: *
+        Disallow: /blah
+        User-Agent: SpecialFriend
+        Allow: /
+        Crawl-Delay: 1";
+
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert_eq!(r.delay, Some(42));
+        let r = Robot::new("SpecialFriend", txt.as_bytes()).unwrap();
+        assert_eq!(r.delay, Some(1));
+    }
+
     /// From fuzzer
     //
 

@@ -446,7 +446,7 @@ impl<'a> Robot {
         }
 
         // Collect the crawl delay
-        let delay = subset
+        let mut delay = subset
             .iter()
             .filter_map(|x| match x {
                 Line::CrawlDelay(Some(d)) => Some(d),
@@ -454,6 +454,19 @@ impl<'a> Robot {
             })
             .copied()
             .next();
+
+        // Special note for crawl delay:
+        // Some robots.txt files have it at the top, before any User-Agent lines, to apply to all
+        if delay.is_none() {
+            for line in lines.iter() {
+                if let Line::CrawlDelay(Some(d)) = line {
+                    delay = Some(*d);
+                }
+                if let Line::UserAgent(_) = line {
+                    break;
+                }
+            }
+        }
 
         // Prepare the regex patterns for matching rules
         let mut rules = vec![];
@@ -480,8 +493,9 @@ impl<'a> Robot {
 
             let rule = RegexBuilder::new(&pat)
                 // Apply computation / memory limits against adversarial actors
-                .dfa_size_limit(10 * (2 << 10))
-                .size_limit(10 * (1 << 10))
+                // This was previously 10KB but has been upped to 42KB due to regex happy but real domains
+                .dfa_size_limit(42 * (1 << 10))
+                .size_limit(42 * (1 << 10))
                 .build();
             let rule = match rule {
                 Ok(rule) => rule,
