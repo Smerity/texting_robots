@@ -139,4 +139,54 @@ mod tests {
         assert!(!r.allowed("https://substack.com/publish"));
         assert!(!r.allowed("https://substack.com/embed"));
     }
+
+    // Note: robots.txt with exceptionally intensive regex-based rules
+    #[test]
+    fn test_real_robot_against_cnet() {
+        let txt = read_file("testdata/cnet.robots.txt");
+
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert_eq!(r.delay, None);
+        // This robots.txt and URL combo has triggered "Compiled regex exceeds size limit of 10240 bytes."
+        assert!(r.allowed("https://www.cnet.com/tech/mobile/homeland-security-details-new-tools-for-extracting-device-data-at-us-borders/"));
+    }
+
+    // Note: robots.txt with exceptionally intensive regex-based rules
+    #[test]
+    fn test_real_robot_against_ipwatchdog() {
+        let txt = read_file("testdata/ipwatchdog.robots.txt");
+
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        // This file starts off with a Crawl-Delay direction before any User-Agents are specified
+        assert_eq!(r.delay, Some(120));
+        assert!(!r.allowed("/2010/12/22/judge-kathleen-omalley-finally-confirmed-by-senate-for-cafc/id=13941/TEXT_IN_THE_MIDDLE_OF_THIS_%20%20http://inventivestep.net/2010/04/15/edward-dumont-nominated-to-federal-circuit/"));
+    }
+
+    // Note: robots.txt with exceptionally intensive regex-based rules
+    #[test]
+    fn test_real_robot_against_zillow() {
+        let txt = read_file("testdata/zillow.robots.txt");
+
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert_eq!(r.delay, None);
+        // Testing against the "*/foreclosed/*" rule
+        assert!(!r.allowed("/homes/sanfrancisco/cbd/foreclosed/2021-12-01/"));
+        // Testing against the terrifying "/profiles/ProfileBorderTemplate,*myzillow*MyListingsTabulated.*postings*owners*OwnersProfileUpsell.*DirectLink.sdirect"
+        assert!(!r.allowed("/profiles/ProfileBorderTemplate,BOB,TRIES,HARD,TO,LIKE,ROBOTS,myzillow,AND,SO,ON,MyListingsTabulated.BUT.IT.IS.HARD.postings/ETC/ETC/owners/ETC/OwnersProfileUpsell.AND.SO.ON.DirectLink.sdirect"));
+    }
+
+    // Note: robots.txt with exceptionally intensive regex-based rules
+    #[test]
+    fn test_real_robot_against_aviation_safety() {
+        let txt = read_file("testdata/aviation-safety.net.robots.txt");
+
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert_eq!(r.delay, None);
+        // Testing against the terrifying "/database/types/Douglas-DC-3/database/*/*/*/*/*/*/*/*/*/*/*/*" rule
+        // I guess they're not super aware that "/database/types/Douglas-DC-3/database/*" is equivalent..?
+        // ¯\_(ツ)_/¯
+        assert!(!r.allowed(
+            "/database/types/Douglas-DC-3/database/a/b/c/d/e/f/g/h/i/j/k/l"
+        ))
+    }
 }

@@ -1,0 +1,87 @@
+User-agent: Yeti
+Disallow: /
+User-Agent: The Knowledge AI
+Disallow: /
+User-agent: BLEXBot
+Disallow: /
+
+User-agent: yacybot
+Disallow: /
+
+
+User-agent: simplecrawler
+Disallow: /
+
+User-agent: Node/wc-simplecrawler 1.1.13
+Disallow: /
+
+User-agent: Googlebot
+Disallow: /photos/gallery.php
+
+User-Agent: ZoomBot
+Disallow: *
+
+User-Agent: MauiBot
+Disallow: /
+
+User-agent: FemtosearchBot
+Disallow: *
+
+User-agent: Yandex
+Crawl-delay: 10 
+
+User-agent: FemtosearchBot
+Disallow: /
+
+User-agent: PiplBot
+Disallow: /
+
+User-agent: Yandex
+Crawl-delay: 30
+User-agent: Applebot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+User-agent: Linguee
+Disallow: /
+User-agent: http://www.almaden.ibm.com/cs/crawler
+Disallow: / 
+
+User-agent: http://www.almaden.ibm.com/cs/crawler [st1]
+Disallow: / 
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: *
+Disallow: /cgi-bin/
+Disallow: /wikibase/web_db_edit.php
+Disallow: /database/safety-recommendations/safetyrecs-by-occurrence.php
+Disallow: /lib/sendcorrection.php
+Disallow: /about/contact.php
+Disallow: /lib/sendcorrection2.php
+Disallow: /correctform432.php
+Disallow: /database/types/Douglas-DC-3/database/*/*
+Disallow: /database/types/Douglas-DC-3/database/*/*/*
+Disallow: /database/types/Douglas-DC-3/database/*/*/*/*
+Disallow: /database/types/Douglas-DC-3/database/*/*/*/*/*
+Disallow: /database/types/Douglas-DC-3/database/*/*/*/*/*/*
+Disallow: /database/types/Douglas-DC-3/database/*/*/*/*/*/*/*
+Disallow: /database/types/Douglas-DC-3/database/*/*/*/*/*/*/*/*
+Disallow: /database/types/Douglas-DC-3/database/*/*/*/*/*/*/*/*/*
+Disallow: /database/types/Douglas-DC-3/database/*/*/*/*/*/*/*/*/*/*
+Disallow: /database/types/Douglas-DC-3/database/*/*/*/*/*/*/*/*/*/*/*
+Disallow: /database/types/Douglas-DC-3/database/*/*/*/*/*/*/*/*/*/*/*/*
+
+User-Agent: bingbot
+Crawl-delay: 30
+
+User-agent: Cliqzbot
+Disallow: /
+
+User-agent: Riddler
+Disallow: /
+
+User-agent: AhrefsBot 
+Disallow: /
