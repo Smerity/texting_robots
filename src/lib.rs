@@ -105,10 +105,17 @@ use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 
 use regex::{Regex, RegexBuilder};
 
+use thiserror::Error;
 use url::{Position, Url};
 
 #[cfg(test)]
 mod test;
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("Failed to parse robots.txt")]
+    InvalidRobots,
+}
 
 fn percent_encode(input: &str) -> String {
     // Paths outside ASCII must be percent encoded
@@ -278,10 +285,7 @@ impl<'a> Robot {
         let lines = match robots_txt_parse(txt.as_bytes()) {
             Ok((_, lines)) => lines,
             Err(_) => {
-                return Err(anyhow::Error::new(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Failed to parse robots.txt",
-                )))
+                return Err(anyhow::Error::new(Error::InvalidRobots));
             }
         };
 
