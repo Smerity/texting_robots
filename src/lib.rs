@@ -356,7 +356,7 @@ impl fmt::Debug for Robot {
     }
 }
 
-impl<'a> Robot {
+impl Robot {
     /// Construct a new Robot object specifically processed for the given user agent.
     /// The user agent extracts all relevant rules from `robots.txt` and stores them
     /// internally. If the user agent isn't found in `robots.txt` we default to `*`.
@@ -368,9 +368,16 @@ impl<'a> Robot {
     ///
     /// If there are difficulties parsing, which should be rare as the parser is quite
     /// forgiving, then an [InvalidRobots](Error::InvalidRobots) error is returned.
-    pub fn new(agent: &str, txt: &'a [u8]) -> Result<Self, anyhow::Error> {
+    pub fn new(agent: &str, txt: &[u8]) -> Result<Self, anyhow::Error> {
+        // Replace '\x00' with '\n'
+        // This shouldn't be necessary but some websites are strange ...
+        let txt = txt
+            .iter()
+            .map(|x| if *x == 0 { b'\n' } else { *x })
+            .collect::<Vec<u8>>();
+
         // Parse robots.txt using the nom library
-        let lines = match robots_txt_parse(txt.as_bytes()) {
+        let lines = match robots_txt_parse(&txt) {
             Ok((_, lines)) => lines,
             Err(e) => {
                 let err = anyhow::Error::new(Error::InvalidRobots)
@@ -398,7 +405,7 @@ impl<'a> Robot {
 
         // Filter out any lines that aren't User-Agent, Allow, Disallow, or CrawlDelay
         // CONFLICT: reppy's "test_robot_grouping_unknown_keys" test suggests these lines should be kept
-        let lines: Vec<Line<'a>> = lines
+        let lines: Vec<Line> = lines
             .iter()
             .filter(|x| !matches!(x, Line::Sitemap(_) | Line::Raw(_)))
             .copied()
@@ -523,7 +530,11 @@ impl<'a> Robot {
                 .build();
             let rule = match rule {
                 Ok(rule) => rule,
-                Err(e) => return Err(anyhow::Error::new(e)),
+                Err(e) => {
+                    let err = anyhow::Error::new(e)
+                        .context(format!("Invalid robots.txt rule: {}", pat));
+                    return Err(err);
+                }
             };
             rules.push((original.len() as isize, is_allowed, rule));
         }

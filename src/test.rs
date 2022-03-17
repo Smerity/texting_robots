@@ -165,6 +165,19 @@ sitemap: https://example.com/sitemap.xml";
         assert_eq!(r.delay, Some(1));
     }
 
+    #[test]
+    fn test_robot_handles_random_nulls() {
+        let txt = "User-Agent: *
+        \x00\x00Allow: /family\x00\x00
+        Disallow: /family/photos\x00\x00\x00
+        Crawl-Delay: 42";
+
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("/family"));
+        assert!(!r.allowed("/family/photos"));
+        assert_eq!(r.delay, Some(42));
+    }
+
     /// From Common Crawl burn test
     //
 

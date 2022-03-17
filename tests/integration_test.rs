@@ -189,4 +189,17 @@ mod tests {
             "/database/types/Douglas-DC-3/database/a/b/c/d/e/f/g/h/i/j/k/l"
         ))
     }
+
+    // This robots.txt contains many null bytes (\x00\x00\x00...)
+    #[test]
+    fn test_real_robot_against_sgppto() {
+        let txt = read_file("testdata/sgppto.robots.txt");
+
+        let r = Robot::new("SemrushBot", txt.as_bytes()).unwrap();
+        assert_eq!(r.delay, Some(60));
+        let r = Robot::new("SemrushBot-BA", txt.as_bytes()).unwrap();
+        assert_eq!(r.delay, None);
+        assert!(r.allowed("/"));
+        assert!(!r.allowed("/events/action~agenda/"));
+    }
 }
