@@ -159,7 +159,7 @@ use bstr::ByteSlice;
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_while};
-use nom::character::complete::{line_ending, space0};
+use nom::character::complete::space0;
 use nom::combinator::{eof, opt};
 use nom::multi::many_till;
 use nom::sequence::preceded;
@@ -235,9 +235,19 @@ fn is_not_line_ending_or_comment(c: u8) -> bool {
     c != b'\n' && c != b'\r' && c != b'#'
 }
 
+fn is_carriage_return(c: u8) -> bool {
+    c == b'\r'
+}
+
+fn consume_newline(input: &[u8]) -> IResult<&[u8], Option<&[u8]>> {
+    let (input, _) = take_while(is_carriage_return)(input)?;
+    let (input, output) = opt(tag(b"\n"))(input)?;
+    Ok((input, output))
+}
+
 fn line(input: &[u8]) -> IResult<&[u8], Line> {
     let (input, line) = take_while(is_not_line_ending)(input)?;
-    let (input, _) = opt(line_ending)(input)?;
+    let (input, _) = consume_newline(input)?;
     Ok((input, Line::Raw(line)))
 }
 
@@ -251,7 +261,7 @@ fn statement_builder<'a>(
     let (input, line) = take_while(is_not_line_ending_or_comment)(input)?;
     let (input, _) =
         opt(preceded(tag("#"), take_while(is_not_line_ending)))(input)?;
-    let (input, _) = opt(line_ending)(input)?;
+    let (input, _) = consume_newline(input)?;
     let line = line.trim();
     Ok((input, line))
 }
@@ -359,8 +369,10 @@ impl<'a> Robot {
         // Parse robots.txt using the nom library
         let lines = match robots_txt_parse(txt.as_bytes()) {
             Ok((_, lines)) => lines,
-            Err(_) => {
-                return Err(anyhow::Error::new(Error::InvalidRobots));
+            Err(e) => {
+                let err = anyhow::Error::new(Error::InvalidRobots)
+                    .context(e.to_string());
+                return Err(err);
             }
         };
 

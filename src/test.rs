@@ -165,6 +165,30 @@ sitemap: https://example.com/sitemap.xml";
         assert_eq!(r.delay, Some(1));
     }
 
+    /// From Common Crawl burn test
+    //
+
+    #[test]
+    fn test_robot_handle_double_return_then_newline() {
+        let txt = b"\r
+        User-agent: *\r\r
+        Disallow: /en-AU/party\r\r\r\n\n\r\n
+        User-Agent: BobBot
+        Disallow: /fi-FI/party\r\r\n
+        Disallow: /en-US/party\r\r\n
+        \r\n\r\r\r\n\n
+        Crawl-Delay: 4";
+
+        let r = Robot::new("RandomBot", txt).unwrap();
+        assert!(!r.allowed("/en-AU/party"));
+
+        let r = Robot::new("BobBot", txt).unwrap();
+        assert_eq!(r.delay, Some(4));
+        assert!(r.allowed("/en-AU/party"));
+        assert!(!r.allowed("/fi-FI/party"));
+        assert!(!r.allowed("/en-US/party"));
+    }
+
     /// From fuzzer
     //
 
