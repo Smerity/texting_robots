@@ -178,6 +178,23 @@ sitemap: https://example.com/sitemap.xml";
         assert_eq!(r.delay, Some(42));
     }
 
+    #[test]
+    fn test_robot_doesnt_do_full_regex() {
+        // This is added purely as paranoia after seeing so many full regular
+        // expressions written in robots.txt files!
+        // This is also a good sanity test to ensure we always escape the rule
+        let pat = "/(Cat|Dog).html";
+        let target = "/Cat.html";
+        assert!(regex::Regex::new(pat).unwrap().is_match(target));
+
+        let txt = "User-Agent: *
+        Disallow: /
+        Allow: /(Cat|Dog).html";
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed(pat));
+        assert!(!r.allowed(target));
+    }
+
     /// From Common Crawl burn test
     //
 
