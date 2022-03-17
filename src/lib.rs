@@ -157,6 +157,8 @@ use core::fmt;
 
 use bstr::ByteSlice;
 
+use lazy_static::lazy_static;
+
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_while};
 use nom::character::complete::space0;
@@ -332,6 +334,7 @@ fn robots_txt_parse(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
 
 #[allow(dead_code)]
 pub struct Robot {
+    // Rules are stored in the form of (length, allow/disallow, and the regex rule)
     rules: Vec<(isize, bool, Regex)>,
     /// The delay in seconds between requests.
     /// If `Crawl-Delay` is set in `robots.txt` it will return `Some(u32)`
@@ -498,6 +501,15 @@ impl<'a> Robot {
 
             // Paths outside ASCII must be percent encoded
             let pat = percent_encode(pat);
+
+            // Replace any long runs of "*" with a single "*"
+            // The two regexes "x.*y" and "x.*.*y" are equivalent but not simplified by the regex parser
+            // Given there exist rules like "x***********y" this prevents memory blow-up in the regex
+            lazy_static! {
+                static ref STARKILLER_REGEX: Regex =
+                    Regex::new(r"\*+").unwrap();
+            }
+            let pat = STARKILLER_REGEX.replace_all(&pat, "*");
 
             // Escape the pattern (except for the * and $ specific operators) for use in regular expressions
             let pat =

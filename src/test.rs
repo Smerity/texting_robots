@@ -189,6 +189,32 @@ sitemap: https://example.com/sitemap.xml";
         assert!(!r.allowed("/en-US/party"));
     }
 
+    #[test]
+    fn test_robot_crazy_long_regex() {
+        // Inspired by https://www.diecastlegends.com/robots.txt
+        // The only sane reason that a million stars in a row make sense
+        let txt = "User-agent: *
+        Disallow: /basket*
+        # Longest string takes priority. This is necessary due to conflicting Allow rules:
+        Disallow: /*?************************************************************************************donotindex=1*";
+
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("/basket"));
+        assert!(!r.allowed("/basket/ball"));
+        assert!(r.allowed("/example/file?xyz=42"));
+        assert!(!r.allowed("/example/file?xyz=42&donotindex=1"));
+    }
+
+    #[test]
+    fn test_robot_many_star_rule_simplifier() {
+        let txt = "Disallow: /x***y/";
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("/x/y/"));
+        assert_eq!(r.rules.len(), 1);
+        let (_, _, rule) = &r.rules[0];
+        assert_eq!(rule.as_str(), "/x.*y/");
+    }
+
     /// From fuzzer
     //
 
