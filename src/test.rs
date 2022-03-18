@@ -1,10 +1,11 @@
-use super::{robots_txt_parse, Robot};
+use super::{robots_txt_parse, Error, Robot};
 
 use super::Line;
 use super::Line::*;
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
@@ -193,6 +194,38 @@ sitemap: https://example.com/sitemap.xml";
         let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
         assert!(r.allowed(pat));
         assert!(!r.allowed(target));
+    }
+
+    #[test]
+    fn test_robot_errors_on_crazy_long_line() {
+        let mut txt = b"Disallow: /".to_vec();
+        let ending = b"AAAAAAAAAA".to_vec();
+        // 10 bytes * 100_000 = 1MB
+        for _ in 0..100_000 {
+            txt.extend(&ending);
+        }
+        // A Disallow followed by a megabyte of "A" was a real world adversarial example
+        let result = Robot::new("BobBot", &txt);
+        let _expected = anyhow::Error::new(Error::InvalidRobots);
+        assert!(matches!(result, _expected));
+    }
+
+    #[test]
+    fn test_robot_debug_format() {
+        let txt = "User-Agent: A
+        Allow: /allow/
+        Disallow: /disallow/
+        Crawl-Delay: 42
+        SiteMap: https://example.com/sitemap.xml";
+
+        let r = Robot::new("A", txt.as_bytes()).unwrap();
+        let s = format!("{:?}", r);
+        // This isn't particularly complex but a reasonable sanity test
+        // The majority of the properties of the robots.txt file should be presented
+        assert!(s.contains("/allow/"));
+        assert!(s.contains("/disallow/"));
+        assert!(s.contains("Some(42)"));
+        assert!(s.contains("https://example.com/sitemap.xml"));
     }
 
     /// From Common Crawl burn test

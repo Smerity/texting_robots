@@ -1,5 +1,6 @@
 use texting_robots::Robot;
 
+#[cfg(not(tarpaulin_include))]
 fn main() {
     let f = std::fs::File::open("testdata/twitter.robots.txt").unwrap();
     let mut r = std::io::BufReader::new(f);
