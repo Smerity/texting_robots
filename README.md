@@ -129,7 +129,7 @@ only relies on strings, integers, and booleans. The lack of native fetching abil
 should ensure the library is portable across platforms, situations, and languages.
 
 A proof of concept was performed in [WASI][wasi], the "WebAssembly System Interface",
-showing that the library compiles happily and only experiences a 50% / 75% speed penalty
+showing that the library compiles happily and only experiences a 50% or 75% speed penalty
 when used with the Wasmer (LLVM backend) and Wasmtime runtimes respectively. No
 optimizations have been done thus far and there's likely low hanging fruit to reap.
 
@@ -204,3 +204,20 @@ To get line numbers for uncovered code run:
 cargo tarpaulin --ignore-tests -v
 ```
 
+
+## License
+
+Licensed under either of
+
+ * Apache License, Version 2.0
+   ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license
+   ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
+
+## Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.

@@ -1,7 +1,16 @@
 [package]
 name = "texting_robots"
+authors = ["Stephen Merity <smerity@smerity.com>"]
+description = "Texting Robots: A Rust native `robots.txt` parser with thorough unit testing."
+homepage = "https://github.com/Smerity/texting_robots"
+repository = "https://github.com/Smerity/texting_robots"
 version = "0.1.0"
 edition = "2021"
+license = "MIT OR Apache-2.0"
+keywords = ["robot", "robots", "parser", "spider", "crawler"]
+categories = ["parser-implementations", "parsing", "web-programming"]
+exclude = ["/.github", "./testdata", "./fuzz"]
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

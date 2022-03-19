@@ -126,7 +126,7 @@ only relies on strings, integers, and booleans. The lack of native fetching abil
 should ensure the library is portable across platforms, situations, and languages.
 
 A proof of concept was performed in [WASI][wasi], the "WebAssembly System Interface",
-showing that the library compiles happily and only experiences a 50% / 75% speed penalty
+showing that the library compiles happily and only experiences a 50% or 75% speed penalty
 when used with the Wasmer (LLVM backend) and Wasmtime runtimes respectively. No
 optimizations have been done thus far and there's likely low hanging fruit to reap.
 
