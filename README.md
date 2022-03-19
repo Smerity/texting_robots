@@ -1,6 +1,8 @@
 # Texting Robots
 
 [![Workflow Status](https://github.com/Smerity/texting_robots/workflows/ci/badge.svg)](https://github.com/Smerity/texting_robots/actions?query=ci)
+[![Crate](https://img.shields.io/crates/v/texting_robots.svg)](https://crates.io/crates/texting_robots)
+[![API](https://docs.rs/rand/badge.svg)](https://docs.rs/texting_robots/)
 
 Crate `texting_robots` is a library for parsing `robots.txt` files.
 A key design goal of this crate is to have a thorough test suite tested
