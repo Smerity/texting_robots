@@ -9,7 +9,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 keywords = ["robot", "robots", "parser", "spider", "crawler"]
 categories = ["parser-implementations", "parsing", "web-programming"]
-exclude = ["/.github", "/testdata", "/fuzz", "/wasi_poc.sh", "/tests", "/README.tpl", "/rustfmt.toml"]
+exclude = ["/.github", "/testdata", "/fuzz", "/wasi_poc.sh", "/tests", "/src/main.rs", "/README.tpl", "/rustfmt.toml"]
 readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
