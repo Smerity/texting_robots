@@ -90,6 +90,19 @@ the [suggestions made by Google are recommended][google-spec].
 Even when directed to "assume no crawl restrictions" it is likely reasonable and
 polite to use a small fetch delay between requests.
 
+### Always set a User Agent
+
+For crawling `robots.txt` and especially for crawling in general you should
+include a user agent in your request. Most crawling libraries offer adding the
+user agent in a single line.
+
+```ignore
+ClientBuilder.new().user_agent("FerrisCrawler/0.1 (https://ferris.rust/about-this-robot)")...
+```
+
+Beyond respecting `robots.txt` providing a good user agent provides a line of
+communication between you and the web master.
+
 ## Beyond the `robots.txt` specification and general suggestions
 
 `texting_robots` provides much of what you need for safe and respectful
@@ -224,10 +237,13 @@ use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use regex::{Regex, RegexBuilder};
 
 use thiserror::Error;
-use url::{Position, Url};
+use url::{ParseError, Position, Url};
 
 #[cfg(test)]
 mod test;
+
+#[cfg(test)]
+mod test_get_robots_url;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -380,6 +396,44 @@ fn robots_txt_parse(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
         eof,
     )(input)?;
     Ok((input, lines))
+}
+
+/// Construct the URL for `robots.txt` when given a base URL from the
+/// target domain.
+///
+/// # Errors
+///
+/// If there are any issues in parsing the URL, a [ParseError][pe] from the
+/// [URL crate](url) will be returned.
+///
+/// ```rust
+/// use texting_robots::get_robots_url;
+///
+/// let robots_url = get_robots_url("https://example.com/abc/file.html").unwrap();
+/// assert_eq!(robots_url, "https://example.com/robots.txt");
+/// ```
+///
+/// [pe]: ParseError
+pub fn get_robots_url(url: &str) -> Result<String, ParseError> {
+    let parsed = Url::parse(url);
+    match parsed {
+        Ok(url) => {
+            if url.cannot_be_a_base() {
+                return Err(ParseError::SetHostOnCannotBeABaseUrl);
+            }
+
+            if url.scheme() != "http" && url.scheme() != "https" {
+                // EmptyHost isn't optimal but I'd prefer to re-use errors
+                return Err(ParseError::EmptyHost);
+            }
+
+            match url.join("/robots.txt") {
+                Ok(robots_url) => Ok(robots_url.to_string()),
+                Err(e) => Err(e),
+            }
+        }
+        Err(e) => Err(e),
+    }
 }
 
 #[allow(dead_code)]

@@ -95,6 +95,19 @@ the [suggestions made by Google are recommended][google-spec].
 Even when directed to "assume no crawl restrictions" it is likely reasonable and
 polite to use a small fetch delay between requests.
 
+#### Always set a User Agent
+
+For crawling `robots.txt` and especially for crawling in general you should
+include a user agent in your request. Most crawling libraries offer adding the
+user agent in a single line.
+
+```rust
+ClientBuilder.new().user_agent("FerrisCrawler/0.1 (https://ferris.rust/about-this-robot)")...
+```
+
+Beyond respecting `robots.txt` providing a good user agent provides a line of
+communication between you and the web master.
+
 ### Beyond the `robots.txt` specification and general suggestions
 
 `texting_robots` provides much of what you need for safe and respectful
