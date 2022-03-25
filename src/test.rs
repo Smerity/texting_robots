@@ -450,19 +450,17 @@ sitemap: https://example.com/sitemap.xml";
         assert!(r.allowed("https://example.com/found"));
     }
 
-    #[test]
+    /* #[test]
     fn test_reppy_skips_malformed_line() {
         // Note: This conflicts with Google as they allow "Disallow /path"
         let txt = "User-Agent: agent
         Disallow /no/colon/in/this/line";
         let r = Robot::new("agent", txt.as_bytes()).unwrap();
         assert!(r.allowed("/no/colon/in/this/line"));
-    }
+    } */
 
     // TODO: Allow for HTTP status code consideration
     // See: Robots.fetch examples
-
-    // TODO: Add a way for collecting the robots.txt URL from a target URL
 
     // Ignored reppy tests:
     // - test_utf8_bom: Google considers any line with bom as malformed
@@ -531,6 +529,88 @@ sitemap: https://example.com/sitemap.xml";
         assert!(r.allowed("/~mak/mak.html"));
     }
 
+    /// TEST FORGIVENESS
+    /// Inspired by Google allowing a million variations of "disallow"
+    ////////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn test_forgiveness_disallow_all_but_no_colon() {
+        let text = "user-agent: FooBot
+        disallow /\n";
+        let r = Robot::new("FooBot", text.as_bytes()).unwrap();
+        assert!(!r.allowed("/"));
+        assert!(!r.allowed("/foo"));
+    }
+
+    #[test]
+    fn test_forgiveness_disallow_variations() {
+        let text = "user-agent: FooBot
+        disallow: /a
+        dissallow: /b
+        dissalow: /c
+        disalow: /d
+        diasllow: /e
+        disallaw: /f\n";
+        let r = Robot::new("FooBot", text.as_bytes()).unwrap();
+        for path in vec!["/a", "/b", "/c", "/d", "/e", "/f"] {
+            assert!(!r.allowed(path));
+        }
+    }
+
+    #[test]
+    fn test_forgiveness_ensure_not_too_forgiving() {
+        let text = "user-agent: FooBot
+        disallow:/a
+        dissallow/b
+        disallow    /c\n";
+        let r = Robot::new("FooBot", text.as_bytes()).unwrap();
+        assert!(!r.allowed("/a"));
+        assert!(r.allowed("/b"));
+        assert!(!r.allowed("/c"));
+    }
+
+    #[test]
+    fn test_forgiveness_sitemap_variations() {
+        let text = "user-agent: FooBot
+        site-map: /a
+        sitemap: /b
+        site map: /c\n";
+        let r = Robot::new("FooBot", text.as_bytes()).unwrap();
+        assert_eq!(r.sitemaps, vec!["/a", "/b", "/c"]);
+    }
+
+    #[test]
+    fn test_forgiveness_crawler_delay_variations() {
+        let text = "user-agent: FooBot
+        crawl-delay: 42
+        user-agent: BobBot
+        crawl delay: 420
+        user-agent: EveBot
+        crawldelay: 360\n";
+        let r = Robot::new("FooBot", text.as_bytes()).unwrap();
+        assert_eq!(r.delay, Some(42));
+        let r = Robot::new("BobBot", text.as_bytes()).unwrap();
+        assert_eq!(r.delay, Some(420));
+        let r = Robot::new("EveBot", text.as_bytes()).unwrap();
+        assert_eq!(r.delay, Some(360));
+    }
+
+    #[test]
+    fn test_forgiveness_user_agent_variations() {
+        let text = "user-agent: FooBot
+        disallow: /a
+        user agent: BobBot
+        disallow: /b
+        useragent: EveBot
+        disallow: /e\n";
+        let r = Robot::new("FooBot", text.as_bytes()).unwrap();
+        assert!(!r.allowed("/a"));
+        let r = Robot::new("BobBot", text.as_bytes()).unwrap();
+        assert!(!r.allowed("/b"));
+        let r = Robot::new("EveBot", text.as_bytes()).unwrap();
+        assert!(!r.allowed("/e"));
+    }
+
     /// GOOGLE TESTS
     ////////////////////////////////////////////////////////////////////////////////
 
@@ -543,7 +623,6 @@ sitemap: https://example.com/sitemap.xml";
         assert!(r.allowed("/foo"));
     }
 
-    /*
     #[test]
     fn test_google_allows_disallow_with_no_colon() {
         // This stands in conflict to reppy's "test_reppy_skips_malformed_line"
@@ -552,7 +631,6 @@ sitemap: https://example.com/sitemap.xml";
         let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
         assert!(!r.allowed("/"));
     }
-    */
 
     #[test]
     fn test_google_grouping() {

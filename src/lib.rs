@@ -222,10 +222,11 @@ use bstr::ByteSlice;
 
 use lazy_static::lazy_static;
 
-use nom::branch::alt;
+use nom::branch::{alt, Alt};
 use nom::bytes::complete::{tag, tag_no_case, take_while};
-use nom::character::complete::space0;
+use nom::character::complete::{space0, space1};
 use nom::combinator::{eof, opt};
+use nom::error::ParseError as NomParseError;
 use nom::multi::many_till;
 use nom::sequence::preceded;
 use nom::IResult;
@@ -320,13 +321,21 @@ fn line(input: &[u8]) -> IResult<&[u8], Line> {
     Ok((input, Line::Raw(line)))
 }
 
-fn statement_builder<'a>(
+fn many_statement_builder<
+    'a,
+    O,
+    E: NomParseError<&'a [u8]>,
+    List: Alt<&'a [u8], O, E>,
+>(
     input: &'a [u8],
-    target: &str,
-) -> IResult<&'a [u8], &'a [u8]> {
-    let (input, _) = preceded(space0, tag_no_case(target))(input)?;
-    // Note: Adding an opt(...) here would allow for "Disallow /path" to be accepted
-    let (input, _) = preceded(space0, tag(":"))(input)?;
+    targets: List,
+) -> IResult<&'a [u8], &'a [u8]>
+where
+    nom::Err<nom::error::Error<&'a [u8]>>: From<nom::Err<E>>,
+{
+    let (input, _) = preceded(space0, alt(targets))(input)?;
+    // This accepts a colon with spaces ("Disallow: /a") or one or more spaces ("Disallow /")
+    let (input, _) = alt((preceded(space0, tag(":")), space1))(input)?;
     let (input, line) = take_while(is_not_line_ending_or_comment)(input)?;
     let (input, _) =
         opt(preceded(tag("#"), take_while(is_not_line_ending)))(input)?;
@@ -336,17 +345,31 @@ fn statement_builder<'a>(
 }
 
 fn user_agent(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, agent) = statement_builder(input, "user-agent")?;
+    let matcher = (
+        tag_no_case("user-agent"),
+        tag_no_case("user agent"),
+        tag_no_case("useragent"),
+    );
+    let (input, agent) = many_statement_builder(input, matcher)?;
     Ok((input, Line::UserAgent(agent)))
 }
 
 fn allow(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, rule) = statement_builder(input, "allow")?;
+    let matcher = (tag_no_case("allow"),);
+    let (input, rule) = many_statement_builder(input, matcher)?;
     Ok((input, Line::Allow(rule)))
 }
 
 fn disallow(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, rule) = statement_builder(input, "disallow")?;
+    let matcher = (
+        tag_no_case("disallow"),
+        tag_no_case("dissallow"),
+        tag_no_case("dissalow"),
+        tag_no_case("disalow"),
+        tag_no_case("diasllow"),
+        tag_no_case("disallaw"),
+    );
+    let (input, rule) = many_statement_builder(input, matcher)?;
     if rule.is_empty() {
         // "Disallow:" is equivalent to allow all
         // See: https://moz.com/learn/seo/robotstxt and RFC example
@@ -356,12 +379,22 @@ fn disallow(input: &[u8]) -> IResult<&[u8], Line> {
 }
 
 fn sitemap(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, url) = statement_builder(input, "sitemap")?;
+    let matcher = (
+        tag_no_case("sitemap"),
+        tag_no_case("site-map"),
+        tag_no_case("site map"),
+    );
+    let (input, url) = many_statement_builder(input, matcher)?;
     Ok((input, Line::Sitemap(url)))
 }
 
 fn crawl_delay(input: &[u8]) -> IResult<&[u8], Line> {
-    let (input, time) = statement_builder(input, "crawl-delay")?;
+    let matcher = (
+        tag_no_case("crawl-delay"),
+        tag_no_case("crawl delay"),
+        tag_no_case("crawldelay"),
+    );
+    let (input, time) = many_statement_builder(input, matcher)?;
 
     let time = match std::str::from_utf8(time) {
         Ok(time) => time,
@@ -391,10 +424,9 @@ fn robots_txt_parse(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
     let (input, _) = opt(tag(b"\xbb"))(input)?;
     let (input, _) = opt(tag(b"\xbf"))(input)?;
     // TODO: Google limits to 500KB of data - should that be done here?
-    let (input, (lines, _)) = many_till(
-        alt((user_agent, allow, disallow, sitemap, crawl_delay, line)),
-        eof,
-    )(input)?;
+    let matcher =
+        alt((user_agent, allow, disallow, sitemap, crawl_delay, line));
+    let (input, (lines, _)) = many_till(matcher, eof)(input)?;
     Ok((input, lines))
 }
 
@@ -417,7 +449,7 @@ fn robots_txt_parse(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
 pub fn get_robots_url(url: &str) -> Result<String, ParseError> {
     let parsed = Url::parse(url);
     match parsed {
-        Ok(url) => {
+        Ok(mut url) => {
             if url.cannot_be_a_base() {
                 return Err(ParseError::SetHostOnCannotBeABaseUrl);
             }
@@ -425,6 +457,14 @@ pub fn get_robots_url(url: &str) -> Result<String, ParseError> {
             if url.scheme() != "http" && url.scheme() != "https" {
                 // EmptyHost isn't optimal but I'd prefer to re-use errors
                 return Err(ParseError::EmptyHost);
+            }
+
+            // Setting username to "" removes the username and password
+            if !url.username().is_empty() {
+                url.set_username("").unwrap();
+            }
+            if url.password().is_some() {
+                url.set_password(None).unwrap();
             }
 
             match url.join("/robots.txt") {
@@ -514,10 +554,6 @@ impl Robot {
             .filter(|x| !matches!(x, Line::Sitemap(_) | Line::Raw(_)))
             .copied()
             .collect();
-        // Minimum needed to "win" Google's `test_google_grouping` test: remove blank lines
-        //let lines: Vec<Line<'a>> = lines.iter()
-        //    .filter(|x| !matches!(x, Line::Raw(b"")))
-        //    .copied().collect();
 
         // Check if our crawler is explicitly referenced, otherwise we're catch all agent ("*")
         let references_our_bot = lines.iter().any(|x| match x {
