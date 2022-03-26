@@ -274,7 +274,7 @@ sitemap: https://example.com/sitemap.xml";
         let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
         assert!(!r.allowed("/x/y/"));
         assert_eq!(r.rules.len(), 1);
-        let (_, _, rule) = &r.rules[0];
+        let (rule, _) = &r.rules[0];
         assert_eq!(rule.as_str(), "/x.*y/");
     }
 

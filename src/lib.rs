@@ -477,8 +477,9 @@ pub fn get_robots_url(url: &str) -> Result<String, ParseError> {
 
 #[allow(dead_code)]
 pub struct Robot {
-    // Rules are stored in the form of (length, allow/disallow, and the regex rule)
-    rules: Vec<(isize, bool, RobotRegex)>,
+    // Rules are stored in the form of (regex rule, allow/disallow)
+    // where the regex rule is ordered by original pattern length
+    rules: Vec<(RobotRegex, bool)>,
     /// The delay in seconds between requests.
     /// If `Crawl-Delay` is set in `robots.txt` it will return `Some(u32)`
     /// and otherwise `None`.
@@ -658,7 +659,7 @@ impl Robot {
                     return Err(err);
                 }
             };
-            rules.push((original.len() as isize, is_allowed, rule));
+            rules.push((rule, is_allowed));
         }
 
         Ok(Robot { rules, delay, sitemaps })
@@ -670,6 +671,7 @@ impl Robot {
             return "/".to_string();
         }
         // Note: If this fails we assume the passed URL is valid
+        // i.e. We assume the user has passed us a valid relative URL
         let parsed = Url::parse(raw_url);
         let url = match parsed.as_ref() {
             // The Url library performs percent encoding
@@ -704,15 +706,16 @@ impl Robot {
         let mut matches: Vec<&_> = self
             .rules
             .iter()
-            .filter(|(_, _, rule)| rule.is_match(&url))
+            .filter(|(rule, _)| rule.is_match(&url))
             .collect();
 
         // Sort according to the longest match and then by whether it's allowed
+        // RobotRegex is sorted with preference going from longest to shortest
         // If there are two rules of equal length, allow and disallow, spec says allow
-        matches.sort_by_key(|x| (-x.0, !x.1));
+        matches.sort_by_key(|x| (&x.0, !x.1));
 
         match matches.first() {
-            Some((_, is_allowed, _)) => *is_allowed,
+            Some((_, is_allowed)) => *is_allowed,
             // If there are no rules we assume we're allowed
             None => true,
         }
