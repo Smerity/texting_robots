@@ -48,7 +48,7 @@ fn main() {
     println!(
         "Elapsed time: {:.2?} / {} = {:.2?} per allow check",
         before.elapsed(),
-        ITERATIONS,
+        ITERATIONS * 10,
         before.elapsed() / ITERATIONS / 10 // As there are 10 allow checks per loop
     );
 }
