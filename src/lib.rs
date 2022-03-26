@@ -237,7 +237,7 @@ use thiserror::Error;
 use url::{ParseError, Position, Url};
 
 mod minregex;
-use minregex::RobotRegex;
+use minregex::MinRegex as RobotRegex;
 
 #[cfg(test)]
 mod test;
