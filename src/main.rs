@@ -14,6 +14,17 @@ fn main() {
         let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
         assert_eq!(r.delay, Some(1));
         assert_eq!(r.sitemaps, vec!["https://twitter.com/sitemap.xml"]);
+    }
+    println!(
+        "Elapsed time: {:.2?} / {} = {:.2?} per parsed robots.txt",
+        before.elapsed(),
+        ITERATIONS,
+        before.elapsed() / ITERATIONS
+    );
+
+    let before = Instant::now();
+    let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+    for _ in 0..ITERATIONS {
         assert!(!r.allowed("https://twitter.com/Smerity/following"));
         assert!(r.allowed("https://twitter.com/halvarflake"));
         // Note: They disallow any URL with a query parameter
@@ -26,11 +37,18 @@ fn main() {
             "https://twitter.com/search?q=%23Satoshi&src=typed_query&f=top"
         ));
         assert!(!r.allowed("/oauth"));
+        // Round it out to ten for benchmarking purposes
+        assert!(r.allowed(
+            "https://twitter.com/smerity/status/1501495664466927618"
+        ));
+        assert!(r.allowed("https://twitter.com/halvarflake/follower"));
+        assert!(r.allowed("https://twitter.com/explore"));
+        assert!(r.allowed("https://twitter.com/settings/account"));
     }
     println!(
-        "Elapsed time: {:.2?} / {} = {:.2?} per loop",
+        "Elapsed time: {:.2?} / {} = {:.2?} per allow check",
         before.elapsed(),
         ITERATIONS,
-        before.elapsed() / ITERATIONS
+        before.elapsed() / ITERATIONS / 10 // As there are 10 allow checks per loop
     );
 }
