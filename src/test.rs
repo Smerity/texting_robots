@@ -316,6 +316,18 @@ sitemap: https://example.com/sitemap.xml";
     /// REPPY TESTS
     ////////////////////////////////////////////////////////////////////////////////
 
+    // From https://github.com/seomoz/rep-cpp/issues/34
+    #[test]
+    fn test_reppy_handles_leading_wildcard() {
+        let txt = "User-agent: *
+        Disallow: */test";
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("/test"));
+        assert!(!r.allowed("/test/"));
+        assert!(!r.allowed("/foo/test"));
+        assert!(r.allowed("/foo"));
+    }
+
     #[test]
     fn test_reppy_no_leading_user_agent() {
         let txt = "Disallow: /path
