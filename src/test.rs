@@ -283,17 +283,14 @@ sitemap: https://example.com/sitemap.xml";
 
     #[test]
     fn test_fuzzed_long_regex_rule() {
-        let statements: Vec<&str> = vec![
-            "Allow:",
-            "Disallow:",
-            "Sitemap:",
-            "Crawl-Delay:",
-            "User-Agent:",
-        ];
+        let statements: Vec<&str> = vec!["Allow:", "Disallow:"];
+        // Note: We don't do this for Sitemap / User-Agent / Crawl-Delay
+        // For the first two it'd be an allowed input and the latter is ignored
         for statement in statements {
             let crash: Vec<u8> =
                 [statement.as_bytes(), &vec!['A' as u8; 4096]].concat();
-            let _r = Robot::new("BobBot", &crash);
+            let r = Robot::new("BobBot", &crash);
+            assert!(r.is_err());
         }
     }
 
