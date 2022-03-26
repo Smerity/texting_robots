@@ -220,8 +220,6 @@ use core::fmt;
 
 use bstr::ByteSlice;
 
-use lazy_static::lazy_static;
-
 use nom::branch::{alt, Alt};
 use nom::bytes::complete::{tag, tag_no_case, take_while};
 use nom::character::complete::{space0, space1};
@@ -235,10 +233,11 @@ use nom::lib::std::result::Result::Err;
 
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 
-use regex::{Regex, RegexBuilder};
-
 use thiserror::Error;
 use url::{ParseError, Position, Url};
+
+mod minregex;
+use minregex::RobotRegex;
 
 #[cfg(test)]
 mod test;
@@ -479,7 +478,7 @@ pub fn get_robots_url(url: &str) -> Result<String, ParseError> {
 #[allow(dead_code)]
 pub struct Robot {
     // Rules are stored in the form of (length, allow/disallow, and the regex rule)
-    rules: Vec<(isize, bool, Regex)>,
+    rules: Vec<(isize, bool, RobotRegex)>,
     /// The delay in seconds between requests.
     /// If `Crawl-Delay` is set in `robots.txt` it will return `Some(u32)`
     /// and otherwise `None`.
@@ -649,25 +648,8 @@ impl Robot {
             // Paths outside ASCII must be percent encoded
             let pat = percent_encode(pat);
 
-            // Replace any long runs of "*" with a single "*"
-            // The two regexes "x.*y" and "x.*.*y" are equivalent but not simplified by the regex parser
-            // Given that rules like "x***********y" exist this prevents memory blow-up in the regex
-            lazy_static! {
-                static ref STARKILLER_REGEX: Regex =
-                    Regex::new(r"\*+").unwrap();
-            }
-            let pat = STARKILLER_REGEX.replace_all(&pat, "*");
+            let rule = RobotRegex::new(&pat);
 
-            // Escape the pattern (except for the * and $ specific operators) for use in regular expressions
-            let pat =
-                regex::escape(&pat).replace("\\*", ".*").replace("\\$", "$");
-
-            let rule = RegexBuilder::new(&pat)
-                // Apply computation / memory limits against adversarial actors
-                // This was previously 10KB but was upped to 42KB due to real domains with complex regexes
-                .dfa_size_limit(42 * (1 << 10))
-                .size_limit(42 * (1 << 10))
-                .build();
             let rule = match rule {
                 Ok(rule) => rule,
                 Err(e) => {
@@ -719,7 +701,7 @@ impl Robot {
         }
 
         // Filter to only rules matching the URL
-        let mut matches: Vec<&(isize, bool, Regex)> = self
+        let mut matches: Vec<&_> = self
             .rules
             .iter()
             .filter(|(_, _, rule)| rule.is_match(&url))
