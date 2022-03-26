@@ -6,7 +6,8 @@ use regex::{Error, Regex, RegexBuilder};
 #[derive(Debug, Clone)]
 pub struct RobotRegex {
     pattern: String,
-    regex: Regex,
+    // The regex is only constructed if the pattern contains "*" or "$"
+    regex: Option<Regex>,
 }
 
 impl Ord for RobotRegex {
@@ -33,6 +34,14 @@ impl Eq for RobotRegex {}
 
 impl RobotRegex {
     pub fn new(pattern: &str) -> Result<Self, Error> {
+        // If the pattern doesn't contain "*" or "$" it's just a "starts_with" check.
+        // We avoid compiling the regex as it's slow and takes space
+        if !(pattern.contains("*") || pattern.contains("$")) {
+            return Ok(Self { pattern: pattern.to_string(), regex: None });
+        }
+        // TODO: We should ensure that "$" only appears at the end of the pattern
+        // TODO: We could implement "$" w/o "*" using "starts_with" and "equal to".
+
         // Replace any long runs of "*" with a single "*"
         // The two regexes "x.*y" and "x.*.*y" are equivalent but not simplified by the regex parser
         // Given that rules like "x***********y" exist this prevents memory blow-up in the regex
@@ -51,16 +60,22 @@ impl RobotRegex {
             .size_limit(42 * (1 << 10))
             .build()?;
 
-        Ok(Self { pattern: pattern.to_string(), regex: rule })
+        Ok(Self { pattern: pattern.to_string(), regex: Some(rule) })
     }
 
     pub fn is_match(&self, text: &str) -> bool {
-        self.regex.is_match(text)
+        match &self.regex {
+            Some(r) => r.is_match(text),
+            None => text.starts_with(&self.pattern),
+        }
     }
 
     // Code is used in testing to ensure expected wildcard reduction
     #[allow(dead_code)]
     pub fn as_str(&self) -> &str {
-        self.regex.as_str()
+        match &self.regex {
+            Some(r) => r.as_str(),
+            None => &self.pattern.as_str(),
+        }
     }
 }

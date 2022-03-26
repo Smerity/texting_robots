@@ -283,7 +283,7 @@ sitemap: https://example.com/sitemap.xml";
 
     #[test]
     fn test_fuzzed_long_regex_rule() {
-        let statements: Vec<&str> = vec!["Allow:", "Disallow:"];
+        let statements: Vec<&str> = vec!["Allow:*", "Disallow:*"];
         // Note: We don't do this for Sitemap / User-Agent / Crawl-Delay
         // For the first two it'd be an allowed input and the latter is ignored
         for statement in statements {
