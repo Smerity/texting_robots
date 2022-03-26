@@ -211,6 +211,17 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
+    fn test_robot_handles_end_properly() {
+        let txt = "User-Agent: *
+        Disallow: /
+        Disallow: /*/about
+        Allow: /about$";
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("https://quora.com/about"));
+        assert!(!r.allowed("/about/"));
+    }
+
+    #[test]
     fn test_robot_debug_format() {
         let txt = "User-Agent: A
         Allow: /allow/
@@ -275,13 +286,14 @@ sitemap: https://example.com/sitemap.xml";
         assert!(!r.allowed("/x/y/"));
         assert_eq!(r.rules.len(), 1);
         let (rule, _) = &r.rules[0];
-        assert_eq!(rule.as_str(), "/x.*y/");
+        assert_eq!(rule.as_str(), "/x*y/");
     }
 
     /// From fuzzer
     //
 
-    #[test]
+    // MinRegex doesn't fail on this case
+    /* #[test]
     fn test_fuzzed_long_regex_rule() {
         let statements: Vec<&str> = vec!["Allow:", "Disallow:"];
         // Note: We don't do this for Sitemap / User-Agent / Crawl-Delay
@@ -292,7 +304,7 @@ sitemap: https://example.com/sitemap.xml";
             let r = Robot::new("BobBot", &crash);
             assert!(r.is_err());
         }
-    }
+    } */
 
     /// URL Tests
     ////////////////////////////////////////////////////////////////////////////////
