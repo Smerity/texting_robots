@@ -1,12 +1,14 @@
 use std::cmp::Ordering;
 
+use bstr::ByteSlice;
 use lazy_static::lazy_static;
 use regex::{Error, Regex, RegexBuilder};
 
 #[derive(Debug, Clone)]
 pub struct RobotRegex {
     pattern: String,
-    regex: Regex,
+    // The regex is only constructed if the pattern contains "*" or "$"
+    regex: Option<Regex>,
 }
 
 impl Ord for RobotRegex {
@@ -34,6 +36,14 @@ impl Eq for RobotRegex {}
 #[allow(dead_code)]
 impl RobotRegex {
     pub fn new(pattern: &str) -> Result<Self, Error> {
+        // If the pattern doesn't contain "*" or "$" it's just a "starts_with" check.
+        // We avoid compiling the regex as it's slow and takes space
+        if !(pattern.contains("*") || pattern.contains("$")) {
+            return Ok(Self { pattern: pattern.to_string(), regex: None });
+        }
+        // TODO: We should ensure that "$" only appears at the end of the pattern
+        // TODO: We could implement "$" w/o "*" using "starts_with" and "equal to".
+
         // Replace any long runs of "*" with a single "*"
         // The two regexes "x.*y" and "x.*.*y" are equivalent but not simplified by the regex parser
         // Given that rules like "x***********y" exist this prevents memory blow-up in the regex
@@ -52,24 +62,32 @@ impl RobotRegex {
             .size_limit(42 * (1 << 10))
             .build()?;
 
-        Ok(Self { pattern: pattern.to_string(), regex: rule })
+        Ok(Self { pattern: pattern.to_string(), regex: Some(rule) })
     }
 
     pub fn is_match(&self, text: &str) -> bool {
-        self.regex.is_match(text)
+        match &self.regex {
+            Some(r) => r.is_match(text),
+            None => text.starts_with(&self.pattern),
+        }
     }
 
     // Code is used in testing to ensure expected wildcard reduction
     #[allow(dead_code)]
     pub fn as_str(&self) -> &str {
-        self.regex.as_str()
+        match &self.regex {
+            Some(r) => r.as_str(),
+            None => &self.pattern.as_str(),
+        }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct MinRegex {
     pattern: String,
-    regex: String,
+    // The regex is only constructed if the pattern contains "*" or "$"
+    regex: Option<Regex>,
+    starred: Option<String>,
 }
 
 impl Ord for MinRegex {
@@ -96,6 +114,18 @@ impl Eq for MinRegex {}
 
 impl MinRegex {
     pub fn new(pattern: &str) -> Result<Self, Error> {
+        // If the pattern doesn't contain "*" or "$" it's just a "starts_with" check.
+        // We avoid compiling the regex as it's slow and takes space
+        if !pattern.contains("$") && !pattern.contains("*") {
+            return Ok(Self {
+                pattern: pattern.to_string(),
+                regex: None,
+                starred: None,
+            });
+        }
+        // TODO: We should ensure that "$" only appears at the end of the pattern
+        // TODO: We could implement "$" w/o "*" using "starts_with" and "equal to".
+
         // Replace any long runs of "*" with a single "*"
         // The two regexes "x.*y" and "x.*.*y" are equivalent but not simplified by the regex parser
         // Given that rules like "x***********y" exist this prevents memory blow-up in the regex
@@ -104,108 +134,81 @@ impl MinRegex {
         }
         let pat = STARKILLER_REGEX.replace_all(pattern, "*");
 
-        Ok(Self { pattern: pattern.to_string(), regex: pat.to_string() })
+        // If the pattern contains "$" we must do a proper regular expression to ensure it matches
+        // Otherwise we can do a shortcut of ensuring each section is sequentially contained in the target
+        // See: match_stars
+        if !pattern.contains("$") {
+            return Ok(Self {
+                pattern: pattern.to_string(),
+                regex: None,
+                starred: Some(pat.to_string()),
+            });
+        }
+
+        // Escape the pattern (except for the * and $ specific operators) for use in regular expressions
+        let pat = regex::escape(&pat).replace("\\*", ".*").replace("\\$", "$");
+
+        let rule = RegexBuilder::new(&pat)
+            // Apply computation / memory limits against adversarial actors
+            // This was previously 10KB but was upped to 42KB due to real domains with complex regexes
+            .dfa_size_limit(42 * (1 << 10))
+            .size_limit(42 * (1 << 10))
+            .build()?;
+
+        Ok(Self {
+            pattern: pattern.to_string(),
+            regex: Some(rule),
+            starred: None,
+        })
     }
 
-    // Following https://github.com/seomoz/rep-cpp/blob/master/src/directive.cpp
-    fn matcher(pattern: &[u8], text: &[u8], depth: usize) -> bool {
-        let mut pidx = 0;
-        let mut tidx = 0;
+    pub fn match_stars(&self, pattern: &[u8], text: &[u8]) -> bool {
+        // Break the pattern into the parts between the "*"
+        let parts = pattern.as_bytes().split(|&b| b == b'*');
 
-        /* eprintln!(
-            "pat: {:?} {}, txt: {:?} {}, depth: {}",
-            String::from_utf8_lossy(pattern),
-            pattern.len(),
-            String::from_utf8_lossy(text),
-            text.len(),
-            depth
-        ); */
+        let mut starting_point = 0;
 
-        while pidx < pattern.len() - 1 && tidx < text.len() - 1 {
-            //eprintln!("pidx: {}, tidx: {}", pidx, tidx);
-            if pattern[pidx] == b'*' {
-                pidx += 1;
-                let mut temp = tidx;
-                while temp < text.len() - 1 {
-                    //eprintln!("Matching");
-                    if Self::matcher(
-                        &pattern[pidx..],
-                        &text[temp..],
-                        depth + 1,
-                    ) {
-                        return true;
-                    }
-                    temp += 1;
+        for (idx, part) in parts.enumerate() {
+            if idx == 0 && !text.is_empty() && text[0] != b'*' {
+                // The first part is special if it doesn't start with a '*'
+                // This must match at the very start
+                if !text.starts_with(part) {
+                    return false;
                 }
-                // Handle the case of a leading wildcard such as:
-                // - "*/text" matching "/text"
-                // - "/fish*.php" matching "/fish.php"
-                // ERROR / ISSUE / WARNING / PROBLEM:
-                // This needs to ensure that
-                if pidx < pattern.len() - 1 {
-                    /* eprintln!(
-                        "Leading: {:?}, {:?}",
-                        &pattern[pidx..],
-                        &text[tidx..]
-                    ); */
-                    return Self::matcher(
-                        &pattern[pidx..],
-                        &text[tidx..],
-                        depth + 1,
-                    );
+                starting_point += part.len();
+                continue;
+            }
+
+            match text[starting_point..].find(part) {
+                Some(idx) => {
+                    starting_point += idx + part.len();
                 }
-                return false;
-            } else if pattern[pidx] == b'$' {
-                // The loop would have exited if we were at the end of both pattern and text
-                return false;
-            } else if pattern[pidx] != text[tidx] {
-                return false;
-            } else {
-                pidx += 1;
-                tidx += 1;
+                None => return false,
             }
         }
 
-        /* eprintln!("Exit: pidx: {}, tidx: {}", pidx, tidx);
-        eprintln!("Exit: {:?}, {:?}", &pattern[pidx..], &text[tidx..]); */
-
-        // Return true only if we've consumed all of the pattern
-        if pidx == pattern.len() - 1 {
-            if pattern[pidx] == b'*' {
-                // If the last pattern token is a wildcard, we can match the rest of the text
-                true
-            } else {
-                // This differs from Reppy as otherwise we end up with a false match for:
-                // test_robot_rfc_example with pattern "/org/" and text "/orgo.gif"
-                pattern[pidx] == text[tidx]
-            }
-        } else if pidx + 1 == pattern.len() - 1 && pattern[pidx + 1] == b'$' {
-            pattern[pidx] == text[tidx] && tidx == text.len() - 1
-        } else if pattern[pidx] == b'$' {
-            // If the last token is $ ensure we are at the end of the text
-            tidx == text.len() - 1
-        } else if pattern.len() - 1 == pidx + 1 && pattern[pidx + 1] == b'*' {
-            // We differ to Reppy's as we allow '/fish*' to match '/fish'
-            true
-        } else {
-            false
-        }
+        true
     }
 
     pub fn is_match(&self, text: &str) -> bool {
-        /* eprintln!("\nStarting on p:{} and t:{}", self.regex, text); */
-        // Special case of "Allow: " or "Disallow: "
-        if self.regex.is_empty() {
-            return true;
+        match &self.regex {
+            Some(r) => r.is_match(text),
+            None => match &self.starred {
+                Some(p) => self.match_stars(p.as_bytes(), text.as_bytes()),
+                None => text.starts_with(&self.pattern),
+            },
         }
-        let b = Self::matcher(self.regex.as_bytes(), text.as_bytes(), 0);
-        /* eprintln!("Ending on {}", b); */
-        b
     }
 
     // Code is used in testing to ensure expected wildcard reduction
     #[allow(dead_code)]
     pub fn as_str(&self) -> &str {
-        self.regex.as_str()
+        match &self.regex {
+            Some(r) => r.as_str(),
+            None => match &self.starred {
+                Some(p) => p.as_str(),
+                None => self.pattern.as_str(),
+            },
+        }
     }
 }

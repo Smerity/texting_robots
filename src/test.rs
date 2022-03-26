@@ -289,6 +289,23 @@ sitemap: https://example.com/sitemap.xml";
         assert_eq!(rule.as_str(), "/x*y/");
     }
 
+    #[test]
+    fn test_robot_starts_with_wildcard() {
+        let txt = "Disallow: *";
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert!(!r.allowed("/"));
+        assert!(!r.allowed("/a"));
+
+        let txt = "Allow: *
+        Disallow: *y
+        Disallow: */a/*.html";
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("/"));
+        assert!(r.allowed("/b"));
+        assert!(!r.allowed("bob/a/home.html"));
+        assert!(!r.allowed("/gray"));
+    }
+
     /// From fuzzer
     //
 
