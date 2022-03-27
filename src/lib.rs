@@ -484,7 +484,7 @@ pub struct Robot {
     // where the regex rule is ordered by original pattern length
     rules: Vec<(RobotRegex, bool)>,
     /// The delay in seconds between requests.
-    /// If `Crawl-Delay` is set in `robots.txt` it will return `Some(u32)`
+    /// If `Crawl-Delay` is set in `robots.txt` it will return `Some(f32)`
     /// and otherwise `None`.
     pub delay: Option<f32>,
     /// Any sitemaps found in the `robots.txt` file are added to this vector.
