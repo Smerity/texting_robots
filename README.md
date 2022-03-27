@@ -44,7 +44,12 @@ perform caching or a HTTP GET request of the `robots.txt` files themselves.
 This step is up to the user of the library.
 
 ```rust
-use texting_robots::Robot;
+use texting_robots::{Robot, get_robots_url};
+
+// If you want to fetch a URL we'll find the URL for `robots.txt`
+let url = "https://www.rust-lang.org/learn";
+let robots_url = get_robots_url(url);
+// Then we fetch `robots.txt` from robots_url to parse as below
 
 // A `robots.txt` file in String or byte format.
 let txt = r"User-Agent: FerrisCrawler
@@ -61,7 +66,7 @@ let r = Robot::new("FerrisCrawler", txt.as_bytes()).unwrap();
 
 // Ferris has a crawl delay of one second per limb
 // (Crabs have 10 legs so Ferris must wait 10 seconds!)
-assert_eq!(r.delay, Some(10));
+assert_eq!(r.delay, Some(10.0));
 
 // Any listed sitemaps are available for any user agent who finds them
 assert_eq!(r.sitemaps, vec!["https://www.example.com/site.xml"]);
@@ -89,7 +94,7 @@ the [suggestions made by Google are recommended][google-spec].
 - 3xx (redirection): Follow a reasonable number of redirects
 - 4xx (client error): Assume there are no crawl restrictions except for:
   - 429 "Too Many Requests": Retry after a reasonable amount of time
-  (potentially set by the "[Retry-After](mozilla-ra)" header)
+  (potentially set by the "[Retry-After][mozilla-ra]" header)
 - 5xx (server errors): Assume you should not crawl until fixed and/or interpret with care
 
 Even when directed to "assume no crawl restrictions" it is likely reasonable and
@@ -97,7 +102,7 @@ polite to use a small fetch delay between requests.
 
 #### Always set a User Agent
 
-For crawling `robots.txt` and especially for crawling in general you should
+For crawling `robots.txt` (and especially for crawling in general) you should
 include a user agent in your request. Most crawling libraries offer adding the
 user agent in a single line.
 
@@ -134,23 +139,26 @@ but may be revisited depending on community feedback.
 
 ### Usage of Texting Robots in other languages
 
-While not yet specifically supporting any languages other than Rust, the
+While not yet specifically supporting any languages other than Rust the
 library was designed to support language integrations in the future. Battle
 testing this intepretation of the `robots.txt` specification against the web is
-easier done testing with friends.
+easier done testing with friends!
 
 A C API through Rust FFI should be relatively easy to provide given Texting Robots
-only relies on strings, integers, and booleans. The lack of native fetching abilities
+only relies on strings, floats, and booleans. The lack of native fetching abilities
 should ensure the library is portable across platforms, situations, and languages.
 
 A proof of concept was performed in [WASI][wasi], the "WebAssembly System Interface",
-showing that the library compiles happily and only experiences a 50% or 75% speed penalty
-when used with the Wasmer (LLVM backend) and Wasmtime runtimes respectively. No
-optimizations have been done thus far and there's likely low hanging fruit to reap.
+showing that the library compiles happily and only experiences a 50% or 75% speed
+penalty when used with the [Wasmer][wasmer] (LLVM backend) and [Wasmtime][wasmtime]
+runtimes respectively. No optimizations have been done thus far and there's likely
+low hanging fruit to reap.
 
 See `wasi_poc.sh` for details.
 
 [wasi]: https://wasi.dev/
+[wasmer]: https://wasmer.io/
+[wasmtime]: https://wasmtime.dev/
 
 ## Testing
 
@@ -175,7 +183,7 @@ saved and tests written against them.
 ### Common Crawl Test Harness
 
 To ensure that the `robots.txt` parser will not panic in real world situations
-over 54 million `robots.txt` responses were passed through Texting Robots.
+over 34 million `robots.txt` responses were passed through Texting Robots.
 While this test doesn't guarantee the `robots.txt` files were handled correctly
 it does ensure the parser is unlikely to panic during practice.
 
