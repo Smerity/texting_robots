@@ -21,11 +21,11 @@ constitute a positive addition to the internet at large.
 
 ## Installation
 
-Soon you'll be able to install the library by adding this entry:
+You can install the library by adding this entry:
 
 ```plain
 [dependencies]
-texting_robots = "0.1"
+texting_robots = "0.2"
 ```
 
 to your `Cargo.toml` dependency list.

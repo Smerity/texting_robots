@@ -16,7 +16,7 @@ constitute a positive addition to the internet at large.
 
 # Installation
 
-Soon you'll be able to install the library by adding this entry:
+You can install the library by adding this entry:
 
 ```plain
 [dependencies]
