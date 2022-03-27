@@ -23,7 +23,7 @@ sitemap: https://example.com/sitemap.xml";
             UserAgent(b"SmerBot"),
             Disallow(b"/path"),
             Allow(b"/path/exception"),
-            CrawlDelay(Some(60)),
+            CrawlDelay(Some(60.0)),
             Raw(b""),
             Sitemap(b"https://example.com/sitemap.xml"),
         ];
@@ -38,7 +38,34 @@ sitemap: https://example.com/sitemap.xml";
         match robots_txt_parse(good_text.as_bytes()) {
             Ok((_, lines)) => {
                 assert_eq!(lines.len(), 1);
-                assert_eq!(lines[0], CrawlDelay(Some(60)));
+                assert_eq!(lines[0], CrawlDelay(Some(60.0)));
+            }
+            Err(_) => panic!("Crawl-Delay not correctly retrieved"),
+        };
+        // Test float (good)
+        let good_text = "    crawl-delay  : 3.14";
+        match robots_txt_parse(good_text.as_bytes()) {
+            Ok((_, lines)) => {
+                assert_eq!(lines.len(), 1);
+                assert_eq!(lines[0], CrawlDelay(Some(3.14)));
+            }
+            Err(_) => panic!("Crawl-Delay not correctly retrieved"),
+        };
+        // Test float (good)
+        let good_text = "    crawl-delay  : 0.0";
+        match robots_txt_parse(good_text.as_bytes()) {
+            Ok((_, lines)) => {
+                assert_eq!(lines.len(), 1);
+                assert_eq!(lines[0], CrawlDelay(Some(0.0)));
+            }
+            Err(_) => panic!("Crawl-Delay not correctly retrieved"),
+        };
+        // Test float (bad)
+        let bad_text = "    crawl-delay  : -1.618";
+        match robots_txt_parse(bad_text.as_bytes()) {
+            Ok((_, lines)) => {
+                assert_eq!(lines.len(), 1);
+                assert!(!matches!(lines[0], CrawlDelay(_)));
             }
             Err(_) => panic!("Crawl-Delay not correctly retrieved"),
         };
@@ -71,34 +98,45 @@ sitemap: https://example.com/sitemap.xml";
         User-Agent: B
         User-Agent: C
         Crawl-Delay: 420
+        User-Agent: D
+        Crawl-Delay: -1.25
+        User-Agent: E
+        Crawl-Delay: 8
         User-Agent: *
-        CRAWL-Delay : 3600";
+        CRAWL-Delay : 3600
+        User-Agent: Zero
+        Crawl-Delay: 0";
 
         let r = Robot::new("A", txt.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(42));
+        assert_eq!(r.delay, Some(42.0));
         let r = Robot::new("B", txt.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(420));
+        assert_eq!(r.delay, Some(420.0));
         let r = Robot::new("C", txt.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(420));
+        assert_eq!(r.delay, Some(420.0));
         let r = Robot::new("D", txt.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(3600));
+        // Note: D ends up with 8 as it falls through to E's value
+        // I'm not in love with this but it's in line with the spec ...
+        // It's the same as what occurs with the comment between A/B/C above
+        assert_eq!(r.delay, Some(8.0));
+        let r = Robot::new("Zero", txt.as_bytes()).unwrap();
+        assert_eq!(r.delay, Some(0.0));
     }
 
     #[test]
     fn test_robot_crawl_delay_not_integer() {
         let txt = b"User-Agent: A
-        Crawl-Delay: y
+        Crawl-Delay:1.0
         User-Agent: B
-        Crawl-Delay: 4.2
+        Crawl-Delay:4.2
         User-Agent: C
         Crawl-Delay: \x41\xc2\xc3\xb1\x42";
 
         let r = Robot::new("A", txt).unwrap();
-        assert_eq!(r.delay, None);
+        assert_eq!(r.delay, Some(1.0));
         // We assume the (not well specified) Crawl-Delay only allows integers
         // Converting floats is both complicated and not at all well defined
         let r = Robot::new("B", txt).unwrap();
-        assert_eq!(r.delay, None);
+        assert_eq!(r.delay, Some(4.2));
         let r = Robot::new("C", txt).unwrap();
         assert_eq!(r.delay, None);
     }
@@ -145,7 +183,9 @@ sitemap: https://example.com/sitemap.xml";
         let txt = "User-Agent: Y
         Crawl-Delay: 115792089237316195423570985008687907853269984665640564039457584007913129639936";
         let r = Robot::new("Y", txt.as_bytes()).unwrap();
-        assert!(r.delay.is_none());
+        // In the past this was none as the crawl delay overflow integer
+        // but since we've moved to floating point it's complicated ...
+        assert!(r.delay.unwrap() > 3e38);
     }
 
     #[test]
@@ -161,9 +201,9 @@ sitemap: https://example.com/sitemap.xml";
         Crawl-Delay: 1";
 
         let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(42));
+        assert_eq!(r.delay, Some(42.0));
         let r = Robot::new("SpecialFriend", txt.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(1));
+        assert_eq!(r.delay, Some(1.0));
     }
 
     #[test]
@@ -176,7 +216,7 @@ sitemap: https://example.com/sitemap.xml";
         let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
         assert!(r.allowed("/family"));
         assert!(!r.allowed("/family/photos"));
-        assert_eq!(r.delay, Some(42));
+        assert_eq!(r.delay, Some(42.0));
     }
 
     #[test]
@@ -235,7 +275,7 @@ sitemap: https://example.com/sitemap.xml";
         // The majority of the properties of the robots.txt file should be presented
         assert!(s.contains("/allow/"));
         assert!(s.contains("/disallow/"));
-        assert!(s.contains("Some(42)"));
+        assert!(s.contains("Some(42.0)"));
         assert!(s.contains("https://example.com/sitemap.xml"));
     }
 
@@ -257,7 +297,7 @@ sitemap: https://example.com/sitemap.xml";
         assert!(!r.allowed("/en-AU/party"));
 
         let r = Robot::new("BobBot", txt).unwrap();
-        assert_eq!(r.delay, Some(4));
+        assert_eq!(r.delay, Some(4.0));
         assert!(r.allowed("/en-AU/party"));
         assert!(!r.allowed("/fi-FI/party"));
         assert!(!r.allowed("/en-US/party"));
@@ -364,7 +404,7 @@ sitemap: https://example.com/sitemap.xml";
         assert!(r.allowed("/path/exception"));
         assert!(!r.allowed("/path"));
         assert!(r.allowed("/"));
-        assert_eq!(r.delay, Some(7));
+        assert_eq!(r.delay, Some(7.0));
     }
 
     #[test]
@@ -430,8 +470,8 @@ sitemap: https://example.com/sitemap.xml";
         Crawl-delay: 2";
         let r = Robot::new("one", txt.as_bytes()).unwrap();
         let u = Robot::new("two", txt.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(1));
-        assert_eq!(u.delay, Some(2));
+        assert_eq!(r.delay, Some(1.0));
+        assert_eq!(u.delay, Some(2.0));
     }
 
     #[test]
@@ -618,7 +658,7 @@ sitemap: https://example.com/sitemap.xml";
     }
 
     #[test]
-    fn test_forgiveness_crawler_delay_variations() {
+    fn test_forgiveness_crawl_delay_variations() {
         let text = "user-agent: FooBot
         crawl-delay: 42
         user-agent: BobBot
@@ -626,11 +666,11 @@ sitemap: https://example.com/sitemap.xml";
         user-agent: EveBot
         crawldelay: 360\n";
         let r = Robot::new("FooBot", text.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(42));
+        assert_eq!(r.delay, Some(42.0));
         let r = Robot::new("BobBot", text.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(420));
+        assert_eq!(r.delay, Some(420.0));
         let r = Robot::new("EveBot", text.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(360));
+        assert_eq!(r.delay, Some(360.0));
     }
 
     #[test]

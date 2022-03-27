@@ -9,10 +9,10 @@ fn main() {
 
     use std::time::Instant;
     let before = Instant::now();
-    const ITERATIONS: u32 = 1_000;
+    const ITERATIONS: u32 = 100_000;
     for _ in 0..ITERATIONS {
         let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(1));
+        assert_eq!(r.delay, Some(1.0));
         assert_eq!(r.sitemaps, vec!["https://twitter.com/sitemap.xml"]);
     }
     println!(

@@ -56,7 +56,7 @@ let r = Robot::new("FerrisCrawler", txt.as_bytes()).unwrap();
 
 // Ferris has a crawl delay of one second per limb
 // (Crabs have 10 legs so Ferris must wait 10 seconds!)
-assert_eq!(r.delay, Some(10));
+assert_eq!(r.delay, Some(10.0));
 
 // Any listed sitemaps are available for any user agent who finds them
 assert_eq!(r.sitemaps, vec!["https://www.example.com/site.xml"]);
@@ -243,6 +243,9 @@ use minregex::MinRegex as RobotRegex;
 mod test;
 
 #[cfg(test)]
+mod test_repcpp;
+
+#[cfg(test)]
 mod test_get_robots_url;
 
 #[derive(Error, Debug)]
@@ -262,13 +265,13 @@ fn percent_encode(input: &str) -> String {
     utf8_percent_encode(input, FRAGMENT).to_string()
 }
 
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone)]
 enum Line<'a> {
     UserAgent(&'a [u8]),
     Allow(&'a [u8]),
     Disallow(&'a [u8]),
     Sitemap(&'a [u8]),
-    CrawlDelay(Option<u32>),
+    CrawlDelay(Option<f32>),
     Raw(&'a [u8]),
 }
 
@@ -404,9 +407,9 @@ fn crawl_delay(input: &[u8]) -> IResult<&[u8], Line> {
             }))
         }
     };
-    let delay = match time.parse::<u32>() {
-        Ok(d) => Some(d),
-        Err(_) => {
+    let delay = match time.parse::<f32>() {
+        Ok(d) if d >= 0.0 => Some(d),
+        Ok(_) | Err(_) => {
             return Err(nom::Err::Error(nom::error::Error {
                 input,
                 code: nom::error::ErrorKind::Digit,
@@ -483,7 +486,7 @@ pub struct Robot {
     /// The delay in seconds between requests.
     /// If `Crawl-Delay` is set in `robots.txt` it will return `Some(u32)`
     /// and otherwise `None`.
-    pub delay: Option<u32>,
+    pub delay: Option<f32>,
     /// Any sitemaps found in the `robots.txt` file are added to this vector.
     /// According to the `robots.txt` specification a sitemap found in `robots.txt`
     /// is accessible and available to any bot reading `robots.txt`.

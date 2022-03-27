@@ -24,7 +24,7 @@ mod tests {
         Disallow: /threads?
         Crawl-delay: 30";
         let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(30));
+        assert_eq!(r.delay, Some(30.0));
         assert!(r.allowed("https://news.ycombinator.com/item?id=30611367"));
         assert!(!r.allowed("https://news.ycombinator.com/threads?id=Smerity"));
         assert!(r.allowed("https://news.ycombinator.com/user?id=Smerity"));
@@ -71,7 +71,7 @@ mod tests {
         ));
 
         let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(1));
+        assert_eq!(r.delay, Some(1.0));
         assert_eq!(r.sitemaps, vec!["https://twitter.com/sitemap.xml"]);
         assert!(!r.allowed("https://twitter.com/Smerity/following"));
         assert!(r.allowed("https://twitter.com/halvarflake"));
@@ -158,7 +158,7 @@ mod tests {
 
         let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
         // This file starts off with a Crawl-Delay direction before any User-Agents are specified
-        assert_eq!(r.delay, Some(120));
+        assert_eq!(r.delay, Some(120.0));
         assert!(!r.allowed("/2010/12/22/judge-kathleen-omalley-finally-confirmed-by-senate-for-cafc/id=13941/TEXT_IN_THE_MIDDLE_OF_THIS_%20%20http://inventivestep.net/2010/04/15/edward-dumont-nominated-to-federal-circuit/"));
     }
 
@@ -196,7 +196,7 @@ mod tests {
         let txt = read_file("testdata/sgppto.robots.txt");
 
         let r = Robot::new("SemrushBot", txt.as_bytes()).unwrap();
-        assert_eq!(r.delay, Some(60));
+        assert_eq!(r.delay, Some(60.0));
         let r = Robot::new("SemrushBot-BA", txt.as_bytes()).unwrap();
         assert_eq!(r.delay, None);
         assert!(r.allowed("/"));
