@@ -349,19 +349,23 @@ sitemap: https://example.com/sitemap.xml";
     /// From fuzzer
     //
 
-    // MinRegex doesn't fail on this case
-    /* #[test]
+    #[test]
     fn test_fuzzed_long_regex_rule() {
         let statements: Vec<&str> = vec!["Allow:*", "Disallow:*"];
         // Note: We don't do this for Sitemap / User-Agent / Crawl-Delay
         // For the first two it'd be an allowed input and the latter is ignored
         for statement in statements {
-            let crash: Vec<u8> =
+            let mut crash: Vec<u8> =
                 [statement.as_bytes(), &vec!['A' as u8; 4096]].concat();
+            // Add wildcards (*) and an end match ($) to trigger full regex mode
+            // Compilation doesn't fail when using the two shortcut modes
+            crash.extend(b"*$");
+            crash[10] = '*' as u8;
+            crash[30] = '*' as u8;
             let r = Robot::new("BobBot", &crash);
             assert!(r.is_err());
         }
-    } */
+    }
 
     /// URL Tests
     ////////////////////////////////////////////////////////////////////////////////
