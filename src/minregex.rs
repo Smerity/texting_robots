@@ -38,7 +38,7 @@ impl MinRegex {
     pub fn new(pattern: &str) -> Result<Self, Error> {
         // If the pattern doesn't contain "*" or "$" it's just a "starts_with" check.
         // We avoid compiling the regex as it's slow and takes space
-        if !pattern.contains("$") && !pattern.contains("*") {
+        if !pattern.contains('$') && !pattern.contains('*') {
             return Ok(Self {
                 pattern: pattern.to_string(),
                 regex: None,
@@ -59,7 +59,7 @@ impl MinRegex {
         // If the pattern contains "$" we must do a proper regular expression to ensure it matches
         // Otherwise we can do a shortcut of ensuring each section is sequentially contained in the target
         // See: match_stars
-        if !pattern.contains("$") {
+        if !pattern.contains('$') {
             return Ok(Self {
                 pattern: pattern.to_string(),
                 regex: None,
