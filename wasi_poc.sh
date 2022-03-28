@@ -10,16 +10,19 @@ echo
 echo Native execution:
 echo =================
 cargo run --release --
-#Elapsed time: 308.53ms / 1000 = 308.53µs per loop
+#Elapsed time: 1.09s / 100000 = 10.86µs per parsed robots.txt
+#Elapsed time: 896.38ms / 1000000 = 896.00ns per allow check
 
 echo
 echo Wasmtime execution:
 echo ===================
 wasmtime run target/wasm32-wasi/release/texting_robots.wasm --dir=.
-#Elapsed time: 562.58ms / 1000 = 562.63µs per loop
+#Elapsed time: 2.90s / 100000 = 29.04µs per parsed robots.txt
+#Elapsed time: 2.03s / 1000000 = 2.03µs per allow check
 
 echo
 echo Wasmer \(LLVM\) execution:
 echo ========================
 wasmer target/wasm32-wasi/release/texting_robots.wasm --dir . --llvm
-#Elapsed time: 450.81ms / 1000 = 450.81µs per loop
+#Elapsed time: 2.32s / 100000 = 23.21µs per parsed robots.txt
+#Elapsed time: 1.48s / 1000000 = 1.48µs per allow check
