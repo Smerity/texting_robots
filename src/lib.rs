@@ -556,4 +556,12 @@ impl Robot {
             None => true,
         }
     }
+
+    /// Export the raw rules matching this agent
+    ///
+    /// Returns an iterator of two-element tuples with the raw pattern as found
+    /// in the `robots.txt` file, and whether the pattern is allowed.
+    pub fn rules(&self) -> impl Iterator<Item = (&str, bool)> + '_ {
+        self.rules.iter().map(|(regex, allowed)| (regex.as_str(), *allowed))
+    }
 }
