@@ -69,6 +69,9 @@ impl MinRegex {
 
         // Escape the pattern (except for the * and $ specific operators) for use in regular expressions
         let pat = regex::escape(&pat).replace("\\*", ".*").replace("\\$", "$");
+        // We prepend with ^ to ensure it doesn't find a matching substring later in the URL
+        // See: test_robot_handles_starting_position
+        let pat = "^".to_string() + &pat;
 
         let rule = RegexBuilder::new(&pat)
             // Apply computation / memory limits against adversarial actors

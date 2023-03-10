@@ -346,6 +346,25 @@ sitemap: https://example.com/sitemap.xml";
         assert!(!r.allowed("/gray"));
     }
 
+    #[test]
+    fn test_robot_handles_starting_position() {
+        let txt = "User-agent: *
+        Allow: /ocean
+        Disallow: /tooth$
+        Disallow: /fish*$";
+        let r = Robot::new("BobBot", txt.as_bytes()).unwrap();
+        assert!(r.allowed("/ocean"));
+        assert!(!r.allowed("/fish"));
+        assert!(r.allowed("/shark/tooth"));
+        assert!(!r.allowed("/tooth"));
+        assert!(r.allowed("/toothy"));
+        // Without proper starting position handling this will match the /fish rule
+        assert!(r.allowed("/shark/fish"));
+        assert!(!r.allowed("/fish/fins"));
+        assert!(!r.allowed("/fish"));
+        assert!(!r.allowed("/fishy"));
+    }
+
     /// From fuzzer
     //
 
