@@ -1248,4 +1248,26 @@ sitemap: https://example.com/sitemap.xml";
     // - Skip "GoogleOnly_IndexHTMLisDirectory" (i.e. allow "/index.html" if "/" is allowed)
     // - Skip "GoogleOnly_LineTooLong" (though something equivalent makes sense)
     // - TODO: Test the path + params conversion
+
+    #[test]
+    fn test_exporting_of_rules() {
+        let txt = "User-agent: FooBot
+        Disallow: /foo/bar$
+        Allow: /foo/*/qux
+
+        User-agent: BarBot
+        Disallow: ";
+
+        let r = Robot::new("FooBot", txt.as_bytes()).unwrap();
+        assert_eq!(
+            r.rules().collect::<Vec<_>>(),
+            vec![("/foo/bar$", false), ("/foo/*/qux", true)]
+        );
+
+        let r = Robot::new("BarBot", txt.as_bytes()).unwrap();
+        assert_eq!(r.rules().collect::<Vec<_>>(), vec![("/", true)]);
+
+        let r = Robot::new("QuxBot", txt.as_bytes()).unwrap();
+        assert_eq!(r.rules().collect::<Vec<_>>(), vec![]);
+    }
 }

@@ -126,7 +126,6 @@ impl MinRegex {
     }
 
     // Code is used in testing to ensure expected wildcard reduction
-    #[allow(dead_code)]
     pub fn as_str(&self) -> &str {
         match &self.regex {
             Some(r) => r.as_str(),
