@@ -73,13 +73,13 @@ assert_eq!(r.sitemaps, vec!["https://www.example.com/site.xml"]);
 
 // We can also check which pages Ferris is allowed to crawl
 // Notice we can supply the full URL or a relative path?
-assert_eq!(r.allowed("https://www.rust-lang.org/ocean"), true);
-assert_eq!(r.allowed("/ocean"), true);
-assert_eq!(r.allowed("/ocean/reef.html"), true);
+assert!(r.allowed("https://www.rust-lang.org/ocean"));
+assert!(r.allowed("/ocean"));
+assert!(r.allowed("/ocean/reef.html"));
 // Sadly Ferris is allowed in the ocean but not in the rust
-assert_eq!(r.allowed("/rust"), false);
+assert!(!r.allowed("/rust"));
 // Ferris is also friendly but not very good with pythons
-assert_eq!(r.allowed("/forest/tree/snake.py"), false);
+assert!(!r.allowed("/forest/tree/snake.py"));
 ```
 
 ## Crawling considerations
