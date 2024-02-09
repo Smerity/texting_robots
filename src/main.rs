@@ -15,6 +15,9 @@ fn main() {
         assert_eq!(r.delay, Some(1.0));
         assert_eq!(r.sitemaps, vec!["https://twitter.com/sitemap.xml"]);
     }
+    for foo in vec![1] {
+        println!("{foo}");
+    }
     println!(
         "Elapsed time: {:.2?} / {} = {:.2?} per parsed robots.txt",
         before.elapsed(),
