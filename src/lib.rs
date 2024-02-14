@@ -324,6 +324,8 @@ pub struct Robot {
     /// According to the `robots.txt` specification a sitemap found in `robots.txt`
     /// is accessible and available to any bot reading `robots.txt`.
     pub sitemaps: Vec<String>,
+    /// True if our bot is referenced explicitely in the `robots.txt` file
+    references_our_bot: bool,
 }
 
 impl fmt::Debug for Robot {
@@ -498,7 +500,7 @@ impl Robot {
             rules.push((rule, is_allowed));
         }
 
-        Ok(Robot { rules, delay, sitemaps })
+        Ok(Robot { rules, delay, sitemaps, references_our_bot })
     }
 
     fn prepare_url(raw_url: &str) -> String {
@@ -515,6 +517,11 @@ impl Robot {
             Err(_) => percent_encode(raw_url),
         };
         url
+    }
+
+    /// Returns whether or not our bot is explicitely referenced in the robots.txt file
+    pub fn references_our_bot(&self) -> bool {
+        self.references_our_bot
     }
 
     /// Check if the given URL is allowed for the agent by `robots.txt`.
