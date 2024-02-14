@@ -41,19 +41,15 @@ mod tests {
         assert!(r.allowed("https://www.reddit.com/"));
         assert!(r.allowed("https://www.reddit.com/r/rust/"));
         assert!(r.allowed("https://www.reddit.com/posts/2020/"));
-        assert!(!r.allowed(&format!("https://www.reddit.com/login")));
+        assert!(!r.allowed("https://www.reddit.com/login"));
         // RSS is allowed
-        assert!(r.allowed(&format!("https://www.reddit.com/r/rust/.rss")));
+        assert!(r.allowed("https://www.reddit.com/r/rust/.rss"));
         // Sitemaps are allowed
-        assert!(
-            r.allowed(&format!("https://www.reddit.com/sitemaps/2014.xml"))
-        );
+        assert!(r.allowed("https://www.reddit.com/sitemaps/2014.xml"));
         // JSON, XML, and "?feed=" are forbidden
-        assert!(!r.allowed(&format!("https://www.reddit.com/r/rust/.json")));
-        assert!(!r.allowed(&format!("https://www.reddit.com/r/rust/.xml")));
-        assert!(
-            !r.allowed(&format!("https://www.reddit.com/r/rust/?feed=simd"))
-        );
+        assert!(!r.allowed("https://www.reddit.com/r/rust/.json"));
+        assert!(!r.allowed("https://www.reddit.com/r/rust/.xml"));
+        assert!(!r.allowed("https://www.reddit.com/r/rust/?feed=simd"));
     }
 
     #[test]

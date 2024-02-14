@@ -43,11 +43,11 @@ sitemap: https://example.com/sitemap.xml";
             Err(_) => panic!("Crawl-Delay not correctly retrieved"),
         };
         // Test float (good)
-        let good_text = "    crawl-delay  : 3.14";
+        let good_text = "    crawl-delay  : 3.16";
         match robots_txt_parse(good_text.as_bytes()) {
             Ok((_, lines)) => {
                 assert_eq!(lines.len(), 1);
-                assert_eq!(lines[0], CrawlDelay(Some(3.14)));
+                assert_eq!(lines[0], CrawlDelay(Some(3.16)));
             }
             Err(_) => panic!("Crawl-Delay not correctly retrieved"),
         };
@@ -375,12 +375,12 @@ sitemap: https://example.com/sitemap.xml";
         // For the first two it'd be an allowed input and the latter is ignored
         for statement in statements {
             let mut crash: Vec<u8> =
-                [statement.as_bytes(), &vec!['A' as u8; 4096]].concat();
+                [statement.as_bytes(), &vec![b'A'; 4096]].concat();
             // Add wildcards (*) and an end match ($) to trigger full regex mode
             // Compilation doesn't fail when using the two shortcut modes
             crash.extend(b"*$");
-            crash[10] = '*' as u8;
-            crash[30] = '*' as u8;
+            crash[10] = b'*';
+            crash[30] = b'*';
             let r = Robot::new("BobBot", &crash);
             assert!(r.is_err());
         }
@@ -391,7 +391,7 @@ sitemap: https://example.com/sitemap.xml";
 
     #[test]
     fn test_url_prepare_relative() {
-        for (url, path) in vec![
+        for (url, path) in [
             ("https://example.com/foo/bar/baz.html", "/foo/bar/baz.html"),
             ("https://example.com/", "/"),
             ("https://example.com/path", "/path"),
@@ -653,7 +653,7 @@ sitemap: https://example.com/sitemap.xml";
         diasllow: /e
         disallaw: /f\n";
         let r = Robot::new("FooBot", text.as_bytes()).unwrap();
-        for path in vec!["/a", "/b", "/c", "/d", "/e", "/f"] {
+        for path in ["/a", "/b", "/c", "/d", "/e", "/f"] {
             assert!(!r.allowed(path));
         }
     }
@@ -809,7 +809,7 @@ sitemap: https://example.com/sitemap.xml";
         AlLoW: /x/
         dIsAlLoW: /";
 
-        for bot in vec!["FooBot", "BarBot", "BazBot"] {
+        for bot in ["FooBot", "BarBot", "BazBot"] {
             let r = Robot::new(bot, txt.as_bytes()).unwrap();
             assert!(r.allowed("http://foo.bar/x/y"));
             assert!(!r.allowed("http://foo.bar/a/b"));
@@ -984,7 +984,7 @@ sitemap: https://example.com/sitemap.xml";
 
     #[test]
     fn test_google_documentation_checks() {
-        for r in vec!["/fish", "/fish*"] {
+        for r in ["/fish", "/fish*"] {
             let txt = format!(
                 "user-agent: FooBot
             disallow: /
@@ -1097,7 +1097,7 @@ sitemap: https://example.com/sitemap.xml";
             
             
             Disallow: /";
-            let txt = txt.replace("\n", line_ending);
+            let txt = txt.replace('\n', line_ending);
             let (buffer, lines) = robots_txt_parse(txt.as_bytes()).unwrap();
             assert!(buffer.is_empty());
             assert_eq!(lines.len(), 6);
@@ -1147,11 +1147,9 @@ sitemap: https://example.com/sitemap.xml";
 
     #[test]
     fn test_google_utf8_bom_is_skipped() {
-        for bom in vec![
-            b"\xef\xbb\xbf".to_vec(),
-            b"\xef\xbb".to_vec(),
-            b"\xef".to_vec(),
-        ] {
+        for bom in
+            [b"\xef\xbb\xbf".to_vec(), b"\xef\xbb".to_vec(), b"\xef".to_vec()]
+        {
             let txt = b"User-Agent: foo\nAllow: /AnyValue\n".to_vec();
             let txt = [&bom[..], &txt[..]].concat();
             let (buffer, lines) = robots_txt_parse(&txt).unwrap();
@@ -1230,7 +1228,7 @@ sitemap: https://example.com/sitemap.xml";
         // https://github.com/servo/rust-url/issues/149
         // "the algorithm specified at https://url.spec.whatwg.org/#path-state ..."
         // "leaves existing percent-encoded sequences unchanged"
-        for (start, end) in vec![
+        for (start, end) in [
             ("http://www.example.com", "/"),
             ("/a/b/c", "/a/b/c"),
             ("/á", "/%C3%A1"),
