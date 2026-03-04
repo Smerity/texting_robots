@@ -89,7 +89,7 @@ the [suggestions made by Google are recommended][google-spec].
 - 3xx (redirection): Follow a reasonable number of redirects
 - 4xx (client error): Assume there are no crawl restrictions except for:
   - 429 "Too Many Requests": Retry after a reasonable amount of time
-  (potentially set by the "[Retry-After][mozilla-ra]" header)
+    (potentially set by the "[Retry-After][mozilla-ra]" header)
 - 5xx (server errors): Assume you should not crawl until fixed and/or interpret with care
 
 Even when directed to "assume no crawl restrictions" it is likely reasonable and
@@ -375,10 +375,7 @@ impl Robot {
         let sitemaps = lines
             .iter()
             .filter_map(|x| match x {
-                Line::Sitemap(url) => match String::from_utf8(url.to_vec()) {
-                    Ok(url) => Some(url),
-                    Err(_) => None,
-                },
+                Line::Sitemap(url) => String::from_utf8(url.to_vec()).ok(),
                 _ => None,
             })
             .collect();
