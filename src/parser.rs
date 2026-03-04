@@ -63,7 +63,7 @@ fn consume_newline(input: &[u8]) -> IResult<&[u8], Option<&[u8]>> {
     Ok((input, output))
 }
 
-fn line(input: &[u8]) -> IResult<&[u8], Line> {
+fn line(input: &[u8]) -> IResult<&[u8], Line<'_>> {
     let (input, line) = take_while(is_not_line_ending)(input)?;
     let (input, _) = consume_newline(input)?;
     Ok((input, Line::Raw(line)))
@@ -92,7 +92,7 @@ where
     Ok((input, line))
 }
 
-fn user_agent(input: &[u8]) -> IResult<&[u8], Line> {
+fn user_agent(input: &[u8]) -> IResult<&[u8], Line<'_>> {
     let matcher = (
         tag_no_case("user-agent"),
         tag_no_case("user agent"),
@@ -102,13 +102,13 @@ fn user_agent(input: &[u8]) -> IResult<&[u8], Line> {
     Ok((input, Line::UserAgent(agent)))
 }
 
-fn allow(input: &[u8]) -> IResult<&[u8], Line> {
+fn allow(input: &[u8]) -> IResult<&[u8], Line<'_>> {
     let matcher = (tag_no_case("allow"),);
     let (input, rule) = many_statement_builder(input, matcher)?;
     Ok((input, Line::Allow(rule)))
 }
 
-fn disallow(input: &[u8]) -> IResult<&[u8], Line> {
+fn disallow(input: &[u8]) -> IResult<&[u8], Line<'_>> {
     let matcher = (
         tag_no_case("disallow"),
         tag_no_case("dissallow"),
@@ -126,7 +126,7 @@ fn disallow(input: &[u8]) -> IResult<&[u8], Line> {
     Ok((input, Line::Disallow(rule)))
 }
 
-fn sitemap(input: &[u8]) -> IResult<&[u8], Line> {
+fn sitemap(input: &[u8]) -> IResult<&[u8], Line<'_>> {
     let matcher = (
         tag_no_case("sitemap"),
         tag_no_case("site-map"),
@@ -136,7 +136,7 @@ fn sitemap(input: &[u8]) -> IResult<&[u8], Line> {
     Ok((input, Line::Sitemap(url)))
 }
 
-fn crawl_delay(input: &[u8]) -> IResult<&[u8], Line> {
+fn crawl_delay(input: &[u8]) -> IResult<&[u8], Line<'_>> {
     let matcher = (
         tag_no_case("crawl-delay"),
         tag_no_case("crawl delay"),
@@ -165,7 +165,7 @@ fn crawl_delay(input: &[u8]) -> IResult<&[u8], Line> {
     Ok((input, Line::CrawlDelay(delay)))
 }
 
-pub fn robots_txt_parse(input: &[u8]) -> IResult<&[u8], Vec<Line>> {
+pub fn robots_txt_parse(input: &[u8]) -> IResult<&[u8], Vec<Line<'_>>> {
     // Remove BOM ("\xef\xbb\xbf", "\uFEFF") if present
     // TODO: Find a more elegant solution that shortcuts
     let (input, _) = opt(tag(b"\xef"))(input)?;

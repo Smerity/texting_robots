@@ -1205,7 +1205,7 @@ sitemap: https://example.com/sitemap.xml";
     #[test]
     fn test_google_url_prepare_get_path_params_query() {
         // Note: We skip part of the test as we assume the user passed in a URL with valid http/s, not "example.com"
-        for (url, path) in vec![
+        for (url, path) in [
             ("", "/"),
             ("https://example.com", "/"),
             ("https://example.com/", "/"),
