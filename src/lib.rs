@@ -349,6 +349,28 @@ impl Robot {
     /// If there are difficulties parsing, which should be rare as the parser is quite
     /// forgiving, then an [InvalidRobots](Error::InvalidRobots) error is returned.
     pub fn new(agent: &str, txt: &[u8]) -> Result<Self, anyhow::Error> {
+        Robot::with_aliases(&[agent], txt)
+    }
+
+    /// Construct a new Robot object specifically processed for all the given
+    /// user agents as a single robot. Just like <Robot::new> it extracts all
+    /// relevant rules from the `robots.txt` addressed to any of the aliases
+    /// as if it is all one robot and stores them internally. It defaults to
+    /// `*` entries when none of the agents names are found case-insensitively
+    /// within the `robots.txt`.
+    ///
+    /// Using robot aliases can be useful when your robot changed its name and
+    /// you want to stay backwards compatible with what people already have in
+    /// their `robots.txt` for your robot without having to parse the file
+    /// multiple times.
+    ///
+    /// # Errors
+    /// While it is forgiving parsing difficulties with given text can
+    /// result in a returned [InvalidRobots](Error::InvalidRobots) error.
+    pub fn with_aliases(
+        agent_aliases: &[&str],
+        txt: &[u8],
+    ) -> Result<Self, anyhow::Error> {
         // Replace '\x00' with '\n'
         // This shouldn't be necessary but some websites are strange ...
         let txt = txt
@@ -367,8 +389,13 @@ impl Robot {
         };
 
         // All agents are case insensitive in `robots.txt`
-        let agent = agent.to_lowercase();
-        let mut agent = agent.as_str();
+        let mut agents: Vec<String> = Vec::with_capacity(agent_aliases.len());
+
+        for agent in agent_aliases.iter() {
+            if agent.len() > 0 {
+                agents.push(agent.to_lowercase());
+            }
+        }
 
         // Collect all sitemaps
         // Why? "The sitemap field isn't tied to any specific user agent and may be followed by all crawlers"
@@ -393,13 +420,13 @@ impl Robot {
 
         // Check if our crawler is explicitly referenced, otherwise we're catch all agent ("*")
         let references_our_bot = lines.iter().any(|x| match x {
-            Line::UserAgent(ua) => {
+            Line::UserAgent(ua) => agents.iter().any(|agent| {
                 agent.as_bytes() == ua.as_bstr().to_ascii_lowercase()
-            }
+            }),
             _ => false,
         });
         if !references_our_bot {
-            agent = "*";
+            agents = vec!["*".to_string()];
         }
 
         // Collect only the lines relevant to this user agent
@@ -426,7 +453,9 @@ impl Robot {
                     Line::UserAgent(ua) => ua.as_bstr(),
                     _ => unreachable!(),
                 };
-                if agent.as_bytes() == ua.as_bstr().to_ascii_lowercase() {
+                if agents.iter().any(|agent| {
+                    agent.as_bytes() == ua.as_bstr().to_ascii_lowercase()
+                }) {
                     capturing = true;
                 }
                 idx += 1;

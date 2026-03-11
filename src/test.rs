@@ -279,6 +279,46 @@ sitemap: https://example.com/sitemap.xml";
         assert!(s.contains("https://example.com/sitemap.xml"));
     }
 
+    #[test]
+    fn test_robot_alias_multiple() {
+        let txt = "user-agent: lovely_bot
+        Allow: /allow/
+        Disallow: /but not this/
+        User-agent: shinyNewName
+        Allow: /but not this/except this one/
+        Disallow:/allow/except_this
+        ";
+        let agents = ["lovely_bot", "shinyNewName"];
+        let robot = Robot::with_aliases(&agents, txt.as_bytes()).unwrap();
+
+        assert!(robot.allowed("/allow/"));
+        assert!(robot.allowed("/but not this/except this one/"));
+        assert_eq!(robot.allowed("/but not this/"), false);
+        assert_eq!(robot.allowed("/allow/except_this"), false);
+    }
+
+    #[test]
+    fn test_robot_alias_empty() {
+        let txt = "user-agent: *
+        Disallow: /
+        user-agent:
+        user-agent: 
+        ";
+        let variants_empty_agent = [vec![], vec![""]];
+
+        for agent in variants_empty_agent {
+            let robot = Robot::with_aliases(&agent.as_slice(), txt.as_bytes())
+                .unwrap();
+
+            assert_eq!(
+                robot.allowed("/"),
+                false,
+                "Empty agent {:?} should still map to '*'",
+                agent
+            );
+        }
+    }
+
     /// From Common Crawl burn test
     //
 
