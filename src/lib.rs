@@ -311,6 +311,7 @@ pub fn get_robots_url(url: &str) -> Result<String, ParseError> {
     }
 }
 
+#[derive(Clone)]
 #[allow(dead_code)]
 pub struct Robot {
     // Rules are stored in the form of (regex rule, allow/disallow)
